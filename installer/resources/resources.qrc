@@ -1,0 +1,25 @@
+<RCC>
+    <qresource prefix="/logo">
+        <file>logo/logdoctor.svg</file>
+    </qresource>
+    <qresource prefix="/translations"/>
+    <qresource prefix="/fonts">
+        <file alias="Metropolis">fonts/Metropolis.ttf</file>
+        <file alias="Hack">fonts/Hack.ttf</file>
+        <file alias="3270">fonts/3270.ttf</file>
+    </qresource>
+    <qresource prefix="/flags">
+        <file>flags/en.png</file>
+        <file>flags/es.png</file>
+        <file>flags/fr.png</file>
+        <file>flags/it.png</file>
+    </qresource>
+    <qresource prefix="/icons">
+        <file alias="err">icons/dialog_err.png</file>
+        <file alias="info">icons/dialog_info.png</file>
+        <file alias="quest">icons/dialog_quest.png</file>
+        <file alias="warn">icons/dialog_warn.png</file>
+        <file alias="down">icons/down.png</file>
+        <file alias="up">icons/up.png</file>
+    </qresource>
+</RCC>
