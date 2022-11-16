@@ -92,7 +92,7 @@
     </message>
     <message>
         <location filename="../mainwindow.ui" line="695"/>
-        <location filename="../mainwindow.cpp" line="180"/>
+        <location filename="../mainwindow.cpp" line="182"/>
         <source>Next</source>
         <translation>Avanti</translation>
     </message>
@@ -142,27 +142,27 @@
         <translation>Traduci in Italiano</translation>
     </message>
     <message>
-        <location filename="../mainwindow.cpp" line="224"/>
+        <location filename="../mainwindow.cpp" line="232"/>
         <source>Checking the executable path ...</source>
         <translation>Controllo del percorso dell&apos;eseguibile ...</translation>
     </message>
     <message>
-        <location filename="../mainwindow.cpp" line="378"/>
+        <location filename="../mainwindow.cpp" line="238"/>
         <source>Checking the configuration path ...</source>
         <translation>Controllo del percorso del file di configurazione ...</translation>
     </message>
     <message>
-        <location filename="../mainwindow.cpp" line="484"/>
+        <location filename="../mainwindow.cpp" line="245"/>
         <source>Checking the application data path ...</source>
         <translation>Controllo del percorso delle risorse dell&apos;applicazione ...</translation>
     </message>
     <message>
-        <location filename="../mainwindow.cpp" line="791"/>
+        <location filename="../mainwindow.cpp" line="294"/>
         <source>Creating the menu entry ...</source>
         <translation>Creazione del collegamento al menù ...</translation>
     </message>
     <message>
-        <location filename="../mainwindow.cpp" line="844"/>
+        <location filename="../mainwindow.cpp" line="302"/>
         <source>Final steps ...</source>
         <translation>Passi finali ...</translation>
     </message>
@@ -172,176 +172,174 @@
         <translation>Installa</translation>
     </message>
     <message>
-        <location filename="../mainwindow.cpp" line="233"/>
-        <location filename="../mainwindow.cpp" line="245"/>
-        <location filename="../mainwindow.cpp" line="282"/>
-        <location filename="../mainwindow.cpp" line="311"/>
-        <location filename="../mainwindow.cpp" line="324"/>
-        <location filename="../mainwindow.cpp" line="361"/>
-        <location filename="../mainwindow.cpp" line="387"/>
-        <location filename="../mainwindow.cpp" line="415"/>
-        <location filename="../mainwindow.cpp" line="428"/>
-        <location filename="../mainwindow.cpp" line="466"/>
-        <location filename="../mainwindow.cpp" line="493"/>
-        <location filename="../mainwindow.cpp" line="522"/>
-        <location filename="../mainwindow.cpp" line="535"/>
-        <location filename="../mainwindow.cpp" line="572"/>
-        <location filename="../mainwindow.cpp" line="611"/>
-        <location filename="../mainwindow.cpp" line="644"/>
-        <location filename="../mainwindow.cpp" line="665"/>
-        <location filename="../mainwindow.cpp" line="687"/>
-        <location filename="../mainwindow.cpp" line="719"/>
-        <location filename="../mainwindow.cpp" line="748"/>
-        <location filename="../mainwindow.cpp" line="779"/>
-        <location filename="../mainwindow.cpp" line="849"/>
+        <location filename="../mainwindow.cpp" line="307"/>
+        <location filename="../mainwindow.cpp" line="330"/>
+        <location filename="../mainwindow.cpp" line="342"/>
+        <location filename="../mainwindow.cpp" line="379"/>
+        <location filename="../mainwindow.cpp" line="408"/>
+        <location filename="../mainwindow.cpp" line="421"/>
+        <location filename="../mainwindow.cpp" line="461"/>
+        <location filename="../mainwindow.cpp" line="491"/>
+        <location filename="../mainwindow.cpp" line="519"/>
+        <location filename="../mainwindow.cpp" line="532"/>
+        <location filename="../mainwindow.cpp" line="570"/>
+        <location filename="../mainwindow.cpp" line="600"/>
+        <location filename="../mainwindow.cpp" line="629"/>
+        <location filename="../mainwindow.cpp" line="642"/>
+        <location filename="../mainwindow.cpp" line="679"/>
+        <location filename="../mainwindow.cpp" line="728"/>
+        <location filename="../mainwindow.cpp" line="763"/>
+        <location filename="../mainwindow.cpp" line="787"/>
+        <location filename="../mainwindow.cpp" line="816"/>
+        <location filename="../mainwindow.cpp" line="853"/>
+        <location filename="../mainwindow.cpp" line="884"/>
+        <location filename="../mainwindow.cpp" line="920"/>
         <source>Installation failed</source>
         <translation>Installazione fallita</translation>
     </message>
     <message>
-        <location filename="../mainwindow.cpp" line="235"/>
+        <location filename="../mainwindow.cpp" line="332"/>
         <source>The path does not exist</source>
         <translation>Il percorso non esiste</translation>
     </message>
     <message>
-        <location filename="../mainwindow.cpp" line="264"/>
-        <location filename="../mainwindow.cpp" line="297"/>
-        <location filename="../mainwindow.cpp" line="344"/>
-        <location filename="../mainwindow.cpp" line="401"/>
-        <location filename="../mainwindow.cpp" line="445"/>
-        <location filename="../mainwindow.cpp" line="507"/>
-        <location filename="../mainwindow.cpp" line="548"/>
+        <location filename="../mainwindow.cpp" line="361"/>
+        <location filename="../mainwindow.cpp" line="394"/>
+        <location filename="../mainwindow.cpp" line="444"/>
+        <location filename="../mainwindow.cpp" line="505"/>
+        <location filename="../mainwindow.cpp" line="549"/>
+        <location filename="../mainwindow.cpp" line="614"/>
+        <location filename="../mainwindow.cpp" line="655"/>
         <source>Conflict</source>
         <translation>Conflitto</translation>
     </message>
     <message>
-        <location filename="../mainwindow.cpp" line="592"/>
+        <location filename="../mainwindow.cpp" line="255"/>
         <source>Copying the executable file ...</source>
         <translation>Copia del file eseguibile in corso ...</translation>
     </message>
     <message>
-        <location filename="../mainwindow.cpp" line="613"/>
-        <location filename="../mainwindow.cpp" line="667"/>
-        <location filename="../mainwindow.cpp" line="689"/>
-        <location filename="../mainwindow.cpp" line="721"/>
-        <location filename="../mainwindow.cpp" line="781"/>
+        <location filename="../mainwindow.cpp" line="730"/>
+        <location filename="../mainwindow.cpp" line="789"/>
+        <location filename="../mainwindow.cpp" line="818"/>
+        <location filename="../mainwindow.cpp" line="855"/>
+        <location filename="../mainwindow.cpp" line="922"/>
         <source>Failed to copy the resource</source>
         <translation>Errore nel copiare le risorse</translation>
     </message>
     <message>
-        <location filename="../mainwindow.cpp" line="646"/>
-        <location filename="../mainwindow.cpp" line="750"/>
+        <location filename="../mainwindow.cpp" line="765"/>
+        <location filename="../mainwindow.cpp" line="886"/>
         <source>Failed to assign permissions to the resource</source>
         <translation>Errore nell&apos;assegnare i permessi alle risorse</translation>
     </message>
     <message>
-        <location filename="../mainwindow.cpp" line="656"/>
+        <location filename="../mainwindow.cpp" line="264"/>
         <source>Copying the configuration file ...</source>
         <translation>Copia del file di configurazione in corso ...</translation>
     </message>
     <message>
-        <location filename="../mainwindow.cpp" line="676"/>
+        <location filename="../mainwindow.cpp" line="271"/>
         <source>Copying the application resources ...</source>
         <translation>Copia delle risorse dell&apos;applicazione in corso ...</translation>
     </message>
     <message>
-        <location filename="../mainwindow.cpp" line="701"/>
+        <location filename="../mainwindow.cpp" line="279"/>
         <source>Copying the uninstaller ...</source>
         <translation>Copia del disinstallatore in corso ...</translation>
     </message>
     <message>
-        <location filename="../mainwindow.cpp" line="761"/>
+        <location filename="../mainwindow.cpp" line="287"/>
         <source>Copying the icon ...</source>
         <translation>Copia dell&apos;icona in corso ...</translation>
     </message>
     <message>
-        <location filename="../mainwindow.cpp" line="802"/>
-        <location filename="../mainwindow.cpp" line="826"/>
+        <location filename="../mainwindow.cpp" line="971"/>
         <source>Error</source>
         <translation>Errore</translation>
     </message>
     <message>
-        <location filename="../mainwindow.cpp" line="846"/>
+        <location filename="../mainwindow.cpp" line="304"/>
         <source>Installation successful</source>
         <translation>Installazione riuscita</translation>
     </message>
     <message>
-        <location filename="../mainwindow.cpp" line="850"/>
+        <location filename="../mainwindow.cpp" line="308"/>
         <source>An error occured while installing LogDoctor</source>
         <translation>È avvenuto un errore durante l&apos;installazione di LogDoctor</translation>
     </message>
     <message>
-        <location filename="../mainwindow.cpp" line="804"/>
-        <location filename="../mainwindow.cpp" line="828"/>
+        <location filename="../mainwindow.cpp" line="973"/>
         <source>Failed to create the menu entry</source>
         <translation>Errore nel creare il collegamento al menù</translation>
     </message>
     <message>
-        <location filename="../mainwindow.cpp" line="267"/>
-        <location filename="../mainwindow.cpp" line="347"/>
+        <location filename="../mainwindow.cpp" line="364"/>
+        <location filename="../mainwindow.cpp" line="447"/>
         <source>An executable already exists</source>
         <translation>Esiste già un eseguibile</translation>
     </message>
     <message>
-        <location filename="../mainwindow.cpp" line="268"/>
-        <location filename="../mainwindow.cpp" line="299"/>
-        <location filename="../mainwindow.cpp" line="348"/>
-        <location filename="../mainwindow.cpp" line="403"/>
-        <location filename="../mainwindow.cpp" line="449"/>
-        <location filename="../mainwindow.cpp" line="509"/>
+        <location filename="../mainwindow.cpp" line="365"/>
+        <location filename="../mainwindow.cpp" line="396"/>
+        <location filename="../mainwindow.cpp" line="448"/>
+        <location filename="../mainwindow.cpp" line="507"/>
+        <location filename="../mainwindow.cpp" line="553"/>
+        <location filename="../mainwindow.cpp" line="616"/>
         <source>An entry with the same name already exists</source>
         <translation>Esiste già un oggetto con lo stesso nome</translation>
     </message>
     <message>
-        <location filename="../mainwindow.cpp" line="284"/>
-        <location filename="../mainwindow.cpp" line="313"/>
-        <location filename="../mainwindow.cpp" line="363"/>
-        <location filename="../mainwindow.cpp" line="417"/>
-        <location filename="../mainwindow.cpp" line="468"/>
-        <location filename="../mainwindow.cpp" line="524"/>
-        <location filename="../mainwindow.cpp" line="574"/>
+        <location filename="../mainwindow.cpp" line="381"/>
+        <location filename="../mainwindow.cpp" line="410"/>
+        <location filename="../mainwindow.cpp" line="463"/>
+        <location filename="../mainwindow.cpp" line="521"/>
+        <location filename="../mainwindow.cpp" line="572"/>
+        <location filename="../mainwindow.cpp" line="631"/>
+        <location filename="../mainwindow.cpp" line="681"/>
         <source>Failed to remove the entry</source>
         <translation>Errore nella rimozione</translation>
     </message>
     <message>
-        <location filename="../mainwindow.cpp" line="448"/>
+        <location filename="../mainwindow.cpp" line="552"/>
         <source>An old configuration file already exists</source>
         <translation>Un file di configurazione è già presente</translation>
     </message>
     <message>
-        <location filename="../mainwindow.cpp" line="550"/>
+        <location filename="../mainwindow.cpp" line="657"/>
         <source>A directory already exists for the application data</source>
         <translation>Esiste già una directory per le risorse dell&apos;applicazione</translation>
     </message>
     <message>
-        <location filename="../mainwindow.cpp" line="247"/>
-        <location filename="../mainwindow.cpp" line="326"/>
-        <location filename="../mainwindow.cpp" line="389"/>
-        <location filename="../mainwindow.cpp" line="430"/>
-        <location filename="../mainwindow.cpp" line="495"/>
-        <location filename="../mainwindow.cpp" line="537"/>
+        <location filename="../mainwindow.cpp" line="344"/>
+        <location filename="../mainwindow.cpp" line="423"/>
+        <location filename="../mainwindow.cpp" line="493"/>
+        <location filename="../mainwindow.cpp" line="534"/>
+        <location filename="../mainwindow.cpp" line="602"/>
+        <location filename="../mainwindow.cpp" line="644"/>
         <source>Failed to create the directory</source>
         <translation>Errore nella creazione della cartella</translation>
     </message>
     <message>
-        <location filename="../mainwindow.cpp" line="451"/>
+        <location filename="../mainwindow.cpp" line="555"/>
         <source>It&apos;s suggested to renew it, but you can keep it by answering &apos;No&apos;
 Overwrite the file?</source>
         <translation>Sarebbe meglio rinnovarlo, ma puoi decidere di tenerlo scegliendo &apos;No&apos;
 Sovrascrivere il file?</translation>
     </message>
     <message>
-        <location filename="../mainwindow.cpp" line="270"/>
-        <location filename="../mainwindow.cpp" line="301"/>
-        <location filename="../mainwindow.cpp" line="350"/>
-        <location filename="../mainwindow.cpp" line="405"/>
-        <location filename="../mainwindow.cpp" line="511"/>
+        <location filename="../mainwindow.cpp" line="367"/>
+        <location filename="../mainwindow.cpp" line="398"/>
+        <location filename="../mainwindow.cpp" line="450"/>
+        <location filename="../mainwindow.cpp" line="509"/>
+        <location filename="../mainwindow.cpp" line="618"/>
         <source>If you choose to proceed, it will be overwritten
 Continue?</source>
         <translation>Se scegli di procedere, verrà sovrascritto
 Continuare?</translation>
     </message>
     <message>
-        <location filename="../mainwindow.cpp" line="552"/>
+        <location filename="../mainwindow.cpp" line="659"/>
         <source>If you choose to proceed, the content will be overwritten,
 exception made for databases, which won&apos;t be affected
 Continue?</source>
