@@ -164,6 +164,8 @@ void MainWindow::on_button_Next_clicked()
             this->ui->stacked_Main->setCurrentIndex( 1 );
             this->startInstalling();
             break;
+        default:
+            throw( "Unexpected Installatio-Step: "[this->step] );
     }
 }
 
@@ -182,6 +184,8 @@ void MainWindow::on_button_Back_clicked()
             this->ui->label_Install_Step1->setPalette( this->PALETTE_step );
             this->ui->label_Install_Step2->setPalette( this->PALETTE_norm );
             break;
+        default:
+            throw( "Unexpected Installatio-Step: "[this->step] );
     }
 }
 
@@ -191,6 +195,11 @@ void MainWindow::on_checkBox_MenuEntry_toggled(bool checked)
     this->make_menu_entry = checked;
 }
 
+
+
+//////////////////////
+//// INSTALLATION ////
+//////////////////////
 void MainWindow::startInstalling()
 {
     this->installing = true;
@@ -218,16 +227,104 @@ void MainWindow::checkInstallProgress()
 void MainWindow::Install()
 {
     bool ok = true;
-    std::error_code err;
 
     this->ui->progressBar_Install->setValue( 0 );
     this->ui->label_Install_Info->setText( MainWindow::tr( "Checking the executable path ..." ) );
     // check the executable path
+    ok = this->checkExecutablePath();
+
+    if ( ok ) {
+        this->ui->progressBar_Install->setValue( 15 );
+        this->ui->label_Install_Info->setText( MainWindow::tr( "Checking the configuration path ..." ) );
+        // check the configurations path
+        ok = this->checkConfigsPath();
+    }
+
+    if ( ok ) {
+        this->ui->progressBar_Install->setValue( 30 );
+        this->ui->label_Install_Info->setText( MainWindow::tr( "Checking the application data path ..." ) );
+        // check the application data path
+        ok = this->checkAppdataPath();
+    }
+
+    // COPY //
+
+    // if everything went fine, start moving the content
+    if ( ok ) {
+        this->ui->progressBar_Install->setValue( 50 );
+        this->ui->label_Install_Info->setText( MainWindow::tr( "Copying the executable file ..." ) );
+        // move the executable
+        ok = this->copyExecutable();
+
+
+        if ( ok ) {
+            this->ui->progressBar_Install->setValue( 60 );
+            // continue moving stuff: now the config file
+            if ( this->overwrite_conf_file ) {
+                this->ui->label_Install_Info->setText( MainWindow::tr( "Copying the configuration file ..." ) );
+                // no previous config file found or choosed to replace it
+                ok = this->copyConfigfile();
+            }
+
+            if ( ok ) {
+                this->ui->progressBar_Install->setValue( 65 );
+                this->ui->label_Install_Info->setText( MainWindow::tr( "Copying the application resources ..." ) );
+                // continue moving stuff: now the resources
+                ok = this->copyResources();
+            }
+        }
+
+        if ( ok && this->OS != 3 ) { // mac .app contains it
+            this->ui->progressBar_Install->setValue( 85 );
+            this->ui->label_Install_Info->setText( MainWindow::tr( "Copying the uninstaller ..." ) );
+            // move the uninstaller
+            ok = this->copyUninstaller();
+        }
+    }
+
+    if ( ok && this->OS != 3 ) { // mac .app contains these
+        this->ui->progressBar_Install->setValue( 90 );
+        this->ui->label_Install_Info->setText( MainWindow::tr( "Copying the icon ..." ) );
+        // move the icon
+        ok = this->copyIcon();
+
+        // make the menu entry
+        if ( ok && this->make_menu_entry ) {
+            this->ui->progressBar_Install->setValue( 95 );
+            this->ui->label_Install_Info->setText( MainWindow::tr( "Creating the menu entry ..." ) );
+            ok = this->makeMenuEntry();
+        }
+    }
+
+    // proocess finished
+    if ( ok ) {
+        this->ui->progressBar_Install->setValue( 100 );
+        this->ui->label_Install_Info->setText( MainWindow::tr( "Final steps ..." ) );
+        // succesfully
+        this->ui->label_Done_Status->setText( MainWindow::tr( "Installation successful" ) );
+    } else {
+        // with a failure
+        this->ui->label_Done_Status->setText( MainWindow::tr( "Installation failed" ) );
+        this->ui->label_Done_Info->setText( MainWindow::tr( "An error occured while installing LogDoctor" ) );
+    }
+    this->installing = false;
+}
+
+
+
+///////////////////
+//// FUNCTIONS ////
+///////////////////
+bool MainWindow::checkExecutablePath()
+{
+    bool ok = true;
+    std::error_code err;
+
     if ( ! std::filesystem::exists( this->exec_path ) ) {
         this->ui->progressBar_Install->setValue( 10 );
         // path does not exists
-        if ( this->OS == 1 ) {
-            // on unix. path is /usr/bin/
+        if ( this->OS != 2 ) {
+            // on unix/mac. path is (supposedly) always present
             ok = false;
             DialogMsg dialog = DialogMsg(
                 MainWindow::tr( "Installation failed" ),
@@ -237,7 +334,7 @@ void MainWindow::Install()
                 QString::fromStdString( err.message() ), 2, nullptr );
             std::ignore = dialog.exec();
         } else {
-            // on windows/mac. must create the new folder
+            // on windows. must create the new folder
             ok = std::filesystem::create_directory( this->exec_path, err );
             if ( !ok ) {
                 // failed to create
@@ -256,7 +353,7 @@ void MainWindow::Install()
         // path exists
         if ( this->OS == 1 ) {
             // on unix. check if the executable already exists
-            const std::filesystem::path path = this->exec_path.string() + "/LogDoctor";
+            const std::filesystem::path path = this->exec_path.string() + "/logdoctor";
             if ( std::filesystem::exists( path ) ) {
                 // an entry already exists, ask to overwrite it
                 {
@@ -282,7 +379,7 @@ void MainWindow::Install()
                             MainWindow::tr( "Installation failed" ),
                             QString("%1:\n%2").arg(
                                 MainWindow::tr( "Failed to remove the entry" ),
-                                QString::fromStdString( this->exec_path.string() ) ),
+                                QString::fromStdString( path.string() ) ),
                             QString::fromStdString( err.message() ), 2, nullptr );
                         std::ignore = dialog.exec();
                     }
@@ -333,8 +430,11 @@ void MainWindow::Install()
             } else {
                 this->ui->progressBar_Install->setValue( 5 );
                 // installation altready exists, check the executable
-                std::string ext = (this->OS==2) ? ".exe" : "";
-                const std::vector<std::string> names = {"/LogDoctor","/uninstall"};
+                const std::string ext = (this->OS==2) ? ".exe" : ".app";
+                std::vector<std::string> names = {"/LogDoctor","/uninstall"};
+                if ( this->OS == 3 ) {
+                    names.pop_back();
+                }
                 for ( const auto& name : names ) {
                     const std::filesystem::path path = this->exec_path.string() + name + ext;
                     if ( std::filesystem::exists( path ) ) {
@@ -372,92 +472,205 @@ void MainWindow::Install()
             }
         }
     }
+    return ok;
+}
 
-    if ( ok ) {
-        this->ui->progressBar_Install->setValue( 15 );
-        this->ui->label_Install_Info->setText( MainWindow::tr( "Checking the configuration path ..." ) );
-        // check the configurations path
-        if ( ! std::filesystem::exists( this->conf_path ) ) {
-            this->ui->progressBar_Install->setValue( 25 );
-            // path does not exists, create it
-            ok = std::filesystem::create_directory( this->conf_path, err );
-            if ( !ok ) {
-                // failed to create
-                DialogMsg dialog = DialogMsg(
-                    MainWindow::tr( "Installation failed" ),
-                    QString("%1:\n%2").arg(
-                        MainWindow::tr( "Failed to create the directory" ),
-                        QString::fromStdString( this->conf_path.string() ) ),
-                    QString::fromStdString( err.message() ), 2, nullptr );
-                std::ignore = dialog.exec();
+
+bool MainWindow::checkConfigsPath()
+{
+    bool ok = true;
+    std::error_code err;
+
+    if ( ! std::filesystem::exists( this->conf_path ) ) {
+        this->ui->progressBar_Install->setValue( 25 );
+        // path does not exists, create it
+        ok = std::filesystem::create_directory( this->conf_path, err );
+        if ( !ok ) {
+            // failed to create
+            DialogMsg dialog = DialogMsg(
+                MainWindow::tr( "Installation failed" ),
+                QString("%1:\n%2").arg(
+                    MainWindow::tr( "Failed to create the directory" ),
+                    QString::fromStdString( this->conf_path.string() ) ),
+                QString::fromStdString( err.message() ), 2, nullptr );
+            std::ignore = dialog.exec();
+        }
+
+    } else {
+        // path already exists
+        if ( !std::filesystem::is_directory( this->conf_path ) ) {
+            // not a directory, ask to overwrite it
+            {
+                DialogBool dialog = DialogBool(
+                    MainWindow::tr( "Conflict" ),
+                    QString("%1:\n%2\n\n%3").arg(
+                        MainWindow::tr( "An entry with the same name already exists" ),
+                        QString::fromStdString( this->conf_path.string() ),
+                        MainWindow::tr( "If you choose to proceed, it will be overwritten\nContinue?" ) ),
+                    nullptr );
+                ok = dialog.exec();
             }
-
+            if ( ok ) {
+                // agreed on overwriting the entry
+                ok = std::filesystem::remove( this->conf_path, err );
+                if ( !ok ) {
+                    // failed to remove
+                    DialogMsg dialog = DialogMsg(
+                        MainWindow::tr( "Installation failed" ),
+                        QString("%1:\n%2").arg(
+                            MainWindow::tr( "Failed to remove the entry" ),
+                            QString::fromStdString( this->conf_path.string() ) ),
+                        QString::fromStdString( err.message() ), 2, nullptr );
+                    std::ignore = dialog.exec();
+                } else {
+                    this->ui->progressBar_Install->setValue( 30 );
+                    // succesfully removed, now create a new one
+                    ok = std::filesystem::create_directory( this->conf_path, err );
+                    if ( !ok ) {
+                        // failed to create
+                        DialogMsg dialog = DialogMsg(
+                            MainWindow::tr( "Installation failed" ),
+                            QString("%1:\n%2").arg(
+                                MainWindow::tr( "Failed to create the directory" ),
+                                QString::fromStdString( this->conf_path.string() ) ),
+                            QString::fromStdString( err.message() ), 2, nullptr );
+                        std::ignore = dialog.exec();
+                    }
+                }
+            }
         } else {
-            // path already exists
-            if ( !std::filesystem::is_directory( this->conf_path ) ) {
-                // not a directory, ask to overwrite it
+            this->ui->progressBar_Install->setValue( 20 );
+            // is a directory: probably an installation already exists, check if a cofiguration file is present
+            const std::filesystem::path path = this->conf_path.string() + "/logdoctor.conf";
+            if ( std::filesystem::exists( path ) ) {
+                // a configuration file already exists, ask to overwrite it or not
                 {
                     DialogBool dialog = DialogBool(
                         MainWindow::tr( "Conflict" ),
                         QString("%1:\n%2\n\n%3").arg(
-                            MainWindow::tr( "An entry with the same name already exists" ),
-                            QString::fromStdString( this->conf_path.string() ),
-                            MainWindow::tr( "If you choose to proceed, it will be overwritten\nContinue?" ) ),
+                            (std::filesystem::is_regular_file( path ))
+                                ? MainWindow::tr( "An old configuration file already exists" )
+                                : MainWindow::tr( "An entry with the same name already exists" ),
+                            QString::fromStdString( path.string() ),
+                            MainWindow::tr( "It's suggested to renew it, but you can keep it by answering 'No'\nOverwrite the file?" ) ),
                         nullptr );
-                    ok = dialog.exec();
+                    const bool choice = dialog.exec();
+                    if ( choice ) {
+                        this->overwrite_conf_file = true;
+                    }
                 }
-                if ( ok ) {
+                if ( this->overwrite_conf_file ) {
+                    this->ui->progressBar_Install->setValue( 25 );
                     // agreed on overwriting the entry
-                    ok = std::filesystem::remove( this->conf_path, err );
+                    std::ignore = std::filesystem::remove_all( path, err );
+                    ok = ! std::filesystem::exists( path );
                     if ( !ok ) {
                         // failed to remove
                         DialogMsg dialog = DialogMsg(
                             MainWindow::tr( "Installation failed" ),
                             QString("%1:\n%2").arg(
                                 MainWindow::tr( "Failed to remove the entry" ),
-                                QString::fromStdString( this->conf_path.string() ) ),
+                                QString::fromStdString( path.string() ) ),
                             QString::fromStdString( err.message() ), 2, nullptr );
                         std::ignore = dialog.exec();
-                    } else {
-                        this->ui->progressBar_Install->setValue( 30 );
-                        // succesfully removed, now create a new one
-                        ok = std::filesystem::create_directory( this->conf_path, err );
-                        if ( !ok ) {
-                            // failed to create
-                            DialogMsg dialog = DialogMsg(
-                                MainWindow::tr( "Installation failed" ),
-                                QString("%1:\n%2").arg(
-                                    MainWindow::tr( "Failed to create the directory" ),
-                                    QString::fromStdString( this->conf_path.string() ) ),
-                                QString::fromStdString( err.message() ), 2, nullptr );
-                            std::ignore = dialog.exec();
-                        }
                     }
                 }
             } else {
-                this->ui->progressBar_Install->setValue( 20 );
-                // is a directory: probably an installation already exists, check if a cofiguration file is present
-                const std::filesystem::path path = this->conf_path.string() + "/logdoctor.conf";
-                if ( std::filesystem::exists( path ) ) {
-                    // a configuration file already exists, ask to overwrite it or not
-                    {
-                        DialogBool dialog = DialogBool(
-                            MainWindow::tr( "Conflict" ),
-                            QString("%1:\n%2\n\n%3").arg(
-                                (std::filesystem::is_regular_file( path ))
-                                    ? MainWindow::tr( "An old configuration file already exists" )
-                                    : MainWindow::tr( "An entry with the same name already exists" ),
-                                QString::fromStdString( path.string() ),
-                                MainWindow::tr( "It's suggested to renew it, but you can keep it by answering 'No'\nOverwrite the file?" ) ),
-                            nullptr );
-                        const bool choice = dialog.exec();
-                        if ( choice ) {
-                            this->overwrite_conf_file = true;
-                        }
+                // place the new conf file
+                this->overwrite_conf_file = true;
+            }
+        }
+    }
+    return ok;
+}
+
+
+bool MainWindow::checkAppdataPath()
+{
+    bool ok = true;
+    std::error_code err;
+
+    if ( !std::filesystem::exists( this->data_path ) ) {
+        this->ui->progressBar_Install->setValue( 40 );
+        // path does not exists, create it
+        ok = std::filesystem::create_directory( this->data_path, err );
+        if ( !ok ) {
+            // failed to create
+            DialogMsg dialog = DialogMsg(
+                MainWindow::tr( "Installation failed" ),
+                QString("%1:\n%2").arg(
+                    MainWindow::tr( "Failed to create the directory" ),
+                    QString::fromStdString( this->data_path.string() ) ),
+                QString::fromStdString( err.message() ), 2, nullptr );
+            std::ignore = dialog.exec();
+        }
+
+    } else {
+        // path already exists
+        if ( !std::filesystem::is_directory( this->data_path ) ) {
+            // not a directory
+            {
+                DialogBool dialog = DialogBool(
+                    MainWindow::tr( "Conflict" ),
+                    QString("%1:\n%2\n\n%3").arg(
+                        MainWindow::tr( "An entry with the same name already exists" ),
+                        QString::fromStdString( this->data_path.string() ),
+                        MainWindow::tr( "If you choose to proceed, it will be overwritten\nContinue?" ) ),
+                    nullptr );
+                ok = dialog.exec();
+            }
+            if ( ok ) {
+                // agreed on overwriting the entry
+                std::ignore = std::filesystem::remove_all( this->data_path, err );
+                ok = ! std::filesystem::exists( this->data_path );
+                if ( !ok ) {
+                    // failed to remove
+                    DialogMsg dialog = DialogMsg(
+                        MainWindow::tr( "Installation failed" ),
+                        QString("%1:\n%2").arg(
+                            MainWindow::tr( "Failed to remove the entry" ),
+                            QString::fromStdString( this->data_path.string() ) ),
+                        QString::fromStdString( err.message() ), 2, nullptr );
+                    std::ignore = dialog.exec();
+                } else {
+                    this->ui->progressBar_Install->setValue( 40 );
+                    // succesfully removed, now create a new one
+                    ok = std::filesystem::create_directory( this->data_path, err );
+                    if ( !ok ) {
+                        // failed to create
+                        DialogMsg dialog = DialogMsg(
+                            MainWindow::tr( "Installation failed" ),
+                            QString("%1:\n%2").arg(
+                                MainWindow::tr( "Failed to create the directory" ),
+                                QString::fromStdString( this->data_path.string() ) ),
+                            QString::fromStdString( err.message() ), 2, nullptr );
+                        std::ignore = dialog.exec();
                     }
-                    if ( this->overwrite_conf_file ) {
-                        this->ui->progressBar_Install->setValue( 25 );
-                        // agreed on overwriting the entry
+                }
+            }
+        } else {
+            // is a directory: probably an installation already exists
+            {
+                DialogBool dialog = DialogBool(
+                    MainWindow::tr( "Conflict" ),
+                    QString("%1:\n%2\n\n%3").arg(
+                        MainWindow::tr( "A directory already exists for the application data" ),
+                        QString::fromStdString( this->data_path.string() ),
+                        MainWindow::tr( "If you choose to proceed, the content will be overwritten,\nexception made for databases, which won't be affected\nContinue?" ) ),
+                    nullptr );
+                ok = dialog.exec();
+            }
+            if ( ok ) {
+                this->ui->progressBar_Install->setValue( 40 );
+                // agreed on overwriting content, remove it
+                std::vector<std::filesystem::path> paths = {
+                    this->data_path.string() + "/help" };
+                if ( this->OS != 3 ) { // mac .app already contains it
+                    paths.push_back( this->data_path.string() + "/licenses" );
+                }
+                for ( const auto& path : paths ) {
+                    // remove the entries
+                    if ( !std::filesystem::exists( path ) ) {
                         std::ignore = std::filesystem::remove_all( path, err );
                         ok = ! std::filesystem::exists( path );
                         if ( !ok ) {
@@ -466,391 +679,306 @@ void MainWindow::Install()
                                 MainWindow::tr( "Installation failed" ),
                                 QString("%1:\n%2").arg(
                                     MainWindow::tr( "Failed to remove the entry" ),
-                                    QString::fromStdString( this->exec_path.string() ) ),
-                                QString::fromStdString( err.message() ), 2, nullptr );
-                            std::ignore = dialog.exec();
-                        }
-                    }
-                } else {
-                    // place the new conf file
-                    this->overwrite_conf_file = true;
-                }
-            }
-        }
-    }
-
-    if ( ok ) {
-        this->ui->progressBar_Install->setValue( 30 );
-        this->ui->label_Install_Info->setText( MainWindow::tr( "Checking the application data path ..." ) );
-        // check the application data path
-        if ( !std::filesystem::exists( this->data_path ) ) {
-            this->ui->progressBar_Install->setValue( 40 );
-            // path does not exists, create it
-            ok = std::filesystem::create_directory( this->data_path, err );
-            if ( !ok ) {
-                // failed to create
-                DialogMsg dialog = DialogMsg(
-                    MainWindow::tr( "Installation failed" ),
-                    QString("%1:\n%2").arg(
-                        MainWindow::tr( "Failed to create the directory" ),
-                        QString::fromStdString( this->data_path.string() ) ),
-                    QString::fromStdString( err.message() ), 2, nullptr );
-                std::ignore = dialog.exec();
-            }
-
-        } else {
-            // path already exists
-            if ( !std::filesystem::is_directory( this->data_path ) ) {
-                // not a directory
-                {
-                    DialogBool dialog = DialogBool(
-                        MainWindow::tr( "Conflict" ),
-                        QString("%1:\n%2\n\n%3").arg(
-                            MainWindow::tr( "An entry with the same name already exists" ),
-                            QString::fromStdString( this->data_path.string() ),
-                            MainWindow::tr( "If you choose to proceed, it will be overwritten\nContinue?" ) ),
-                        nullptr );
-                    ok = dialog.exec();
-                }
-                if ( ok ) {
-                    // agreed on overwriting the entry
-                    std::ignore = std::filesystem::remove_all( this->data_path, err );
-                    ok = ! std::filesystem::exists( this->data_path );
-                    if ( !ok ) {
-                        // failed to remove
-                        DialogMsg dialog = DialogMsg(
-                            MainWindow::tr( "Installation failed" ),
-                            QString("%1:\n%2").arg(
-                                MainWindow::tr( "Failed to remove the entry" ),
-                                QString::fromStdString( this->data_path.string() ) ),
-                            QString::fromStdString( err.message() ), 2, nullptr );
-                        std::ignore = dialog.exec();
-                    } else {
-                        this->ui->progressBar_Install->setValue( 40 );
-                        // succesfully removed, now create a new one
-                        ok = std::filesystem::create_directory( this->data_path, err );
-                        if ( !ok ) {
-                            // failed to create
-                            DialogMsg dialog = DialogMsg(
-                                MainWindow::tr( "Installation failed" ),
-                                QString("%1:\n%2").arg(
-                                    MainWindow::tr( "Failed to create the directory" ),
                                     QString::fromStdString( this->data_path.string() ) ),
                                 QString::fromStdString( err.message() ), 2, nullptr );
                             std::ignore = dialog.exec();
-                        }
-                    }
-                }
-            } else {
-                // is a directory: probably an installation already exists
-                {
-                    DialogBool dialog = DialogBool(
-                        MainWindow::tr( "Conflict" ),
-                        QString("%1:\n%2\n\n%3").arg(
-                            MainWindow::tr( "A directory already exists for the application data" ),
-                            QString::fromStdString( this->data_path.string() ),
-                            MainWindow::tr( "If you choose to proceed, the content will be overwritten,\nexception made for databases, which won't be affected\nContinue?" ) ),
-                        nullptr );
-                    ok = dialog.exec();
-                }
-                if ( ok ) {
-                    this->ui->progressBar_Install->setValue( 40 );
-                    // agreed on overwriting content, remove it
-                    std::vector<std::filesystem::path> paths = {
-                        this->data_path.string() + "/help" };
-                    if ( this->OS != 3 ) { // mac .app already contains it
-                        paths.push_back( this->data_path.string() + "/licenses" );
-                    }
-                    for ( const auto& path : paths ) {
-                        // remove the entries
-                        if ( !std::filesystem::exists( path ) ) {
-                            std::ignore = std::filesystem::remove_all( path, err );
-                            ok = ! std::filesystem::exists( path );
-                            if ( !ok ) {
-                                // failed to remove
-                                DialogMsg dialog = DialogMsg(
-                                    MainWindow::tr( "Installation failed" ),
-                                    QString("%1:\n%2").arg(
-                                        MainWindow::tr( "Failed to remove the entry" ),
-                                        QString::fromStdString( this->data_path.string() ) ),
-                                    QString::fromStdString( err.message() ), 2, nullptr );
-                                std::ignore = dialog.exec();
-                                break;
-                            }
+                            break;
                         }
                     }
                 }
             }
         }
     }
+    return ok;
+}
 
-    // COPY //
 
-    // if everything went fine, start moving the content
-    if ( ok ) {
-        this->ui->progressBar_Install->setValue( 50 );
-        this->ui->label_Install_Info->setText( MainWindow::tr( "Copying the executable file ..." ) );
-        // move the executable
-        std::string exec_name;
-        switch ( this->OS ) {
-            case 1:
-                exec_name = "logdoctor"; break;
-            case 2:
-                exec_name = "LogDoctor.exe"; break;
-            case 3:
-                exec_name = "LogDoctor.app"; break;
-            default:
-                throw( "Unexpected OS: "[this->OS] );
+bool MainWindow::copyExecutable()
+{
+    bool ok = true;
+    std::error_code err;
+
+    std::string exec_name;
+    switch ( this->OS ) {
+        case 1:
+            exec_name = "logdoctor"; break;
+        case 2:
+            exec_name = "LogDoctor.exe"; break;
+        case 3:
+            exec_name = "LogDoctor.app"; break;
+        default:
+            throw( "LogDoctor: copyExecutable(): Unexpected OS: "[this->OS] );
+    }
+
+    const std::filesystem::path src_path = "installation_stuff/"+exec_name;
+    const std::filesystem::path dst_path = this->exec_path.string()+"/"+exec_name;
+
+    if ( this->OS == 3 ) {
+        std::filesystem::copy( src_path, dst_path, std::filesystem::copy_options::overwrite_existing | std::filesystem::copy_options::recursive, err );
+        if ( err.value() != 0 ) {
+            ok = false;
         }
-        const std::filesystem::path path = this->exec_path.string()+"/"+exec_name;
-        ok = std::filesystem::copy_file( exec_name, path, std::filesystem::copy_options::overwrite_existing, err );
-        // set permission
-        if ( !ok ) {
-            // failed to copy
-            DialogMsg dialog = DialogMsg(
-                MainWindow::tr( "Installation failed" ),
-                QString("%1:\n%2").arg(
-                    MainWindow::tr( "Failed to copy the resource" ),
-                    QString::fromStdString( path.string() ) ),
-                QString::fromStdString( err.message() ), 2, nullptr );
-            std::ignore = dialog.exec();
+    } else {
+        ok = std::filesystem::copy_file( src_path, dst_path, std::filesystem::copy_options::overwrite_existing, err );
+    }
 
-        } else {
-            this->ui->progressBar_Install->setValue( 55 );
-            try {
-                std::filesystem::permissions( path, std::filesystem::perms::owner_all, std::filesystem::perm_options::add );
-                std::filesystem::permissions( path, std::filesystem::perms::group_all, std::filesystem::perm_options::remove );
-                std::filesystem::permissions( path, std::filesystem::perms::group_read, std::filesystem::perm_options::add );
-                std::filesystem::permissions( path, std::filesystem::perms::others_all, std::filesystem::perm_options::remove );
-                switch ( this->OS ) {
-                    case 1:
-                        // 7 5 5
-                        std::filesystem::permissions( path, std::filesystem::perms::others_exec, std::filesystem::perm_options::add );
-                    case 3:
-                        // 7 5 4
-                        std::filesystem::permissions( path, std::filesystem::perms::group_exec, std::filesystem::perm_options::add );
-                        std::filesystem::permissions( path, std::filesystem::perms::others_read, std::filesystem::perm_options::add );
-                        break;
-                    case 2:
-                        // rw r -
-                        break;
-                    default:
-                        throw( "Unexpected OS: "[this->OS] );
-                }
-            } catch (...) {
-                ok = false;
-                // failed set permissions
-                DialogMsg dialog = DialogMsg(
-                    MainWindow::tr( "Installation failed" ),
-                    QString("%1:\n%2").arg(
-                        MainWindow::tr( "Failed to assign permissions to the resource" ),
-                        QString::fromStdString( path.string() ) ),
-                    "", 2, nullptr );
-                std::ignore = dialog.exec();
-            }
-        }
+    if ( !ok ) {
+        // failed to copy
+        DialogMsg dialog = DialogMsg(
+            MainWindow::tr( "Installation failed" ),
+            QString("%1:\n%2").arg(
+                MainWindow::tr( "Failed to copy the resource" ),
+                QString::fromStdString( dst_path.string() ) ),
+            QString::fromStdString( err.message() ), 2, nullptr );
+        std::ignore = dialog.exec();
 
-
-        if ( ok ) {
-            this->ui->progressBar_Install->setValue( 60 );
-            this->ui->label_Install_Info->setText( MainWindow::tr( "Copying the configuration file ..." ) );
-            // continue moving stuff: now the config file
-            if ( this->overwrite_conf_file ) {
-                // no previous config file found or choosed to replace it
-                const std::filesystem::path path_ = this->conf_path.string()+"/logdoctor.conf";
-                ok = std::filesystem::copy_file( "logdoctor.conf", path_, std::filesystem::copy_options::overwrite_existing, err );
-                if ( !ok ) {
-                    // failed to move
-                    DialogMsg dialog = DialogMsg(
-                        MainWindow::tr( "Installation failed" ),
-                        QString("%1:\n%2").arg(
-                            MainWindow::tr( "Failed to copy the resource" ),
-                            QString::fromStdString( path_.string() ) ),
-                        QString::fromStdString( err.message() ), 2, nullptr );
-                    std::ignore = dialog.exec();
-                }
-            }
-
-            if ( ok ) {
-                this->ui->progressBar_Install->setValue( 65 );
-                this->ui->label_Install_Info->setText( MainWindow::tr( "Copying the application resources ..." ) );
-                // continue moving stuff: now the resources
-                const std::vector<std::string> names = { "licenses", "help" };
-                for ( const auto& name : names ) {
-                    // remove the entries
-                    const std::filesystem::path path_ = this->data_path.string()+"/"+name;
-                    std::filesystem::rename( name, path_, err );
-                    if ( err.value() != 0 ) {
-                        // failed to move
-                        ok = false;
-                        DialogMsg dialog = DialogMsg(
-                            MainWindow::tr( "Installation failed" ),
-                            QString("%1:\n%2").arg(
-                                MainWindow::tr( "Failed to copy the resource" ),
-                                QString::fromStdString( path_.string() ) ),
-                            QString::fromStdString( err.message() ), 2, nullptr );
-                        std::ignore = dialog.exec();
-                        break;
-                    }
-                }
-            }
-        }
-
-        if ( ok && this->OS != 3 ) { // mac .app contains it
-            this->ui->progressBar_Install->setValue( 85 );
-            this->ui->label_Install_Info->setText( MainWindow::tr( "Copying the uninstaller ..." ) );
-            // move the uninstaller
-            std::filesystem::path path_;
+    } else {
+        // set permissions
+        this->ui->progressBar_Install->setValue( 55 );
+        try {
+            std::filesystem::permissions( dst_path, std::filesystem::perms::owner_all, std::filesystem::perm_options::add );
+            std::filesystem::permissions( dst_path, std::filesystem::perms::group_all, std::filesystem::perm_options::remove );
+            std::filesystem::permissions( dst_path, std::filesystem::perms::group_read, std::filesystem::perm_options::add );
+            std::filesystem::permissions( dst_path, std::filesystem::perms::others_all, std::filesystem::perm_options::remove );
             switch ( this->OS ) {
                 case 1:
-                    path_ = this->data_path.string()+"/uninstall";
+                    // 7 5 5
+                    std::filesystem::permissions( dst_path, std::filesystem::perms::others_exec, std::filesystem::perm_options::add );
+                case 3:
+                    // 7 5 4
+                    std::filesystem::permissions( dst_path, std::filesystem::perms::group_exec, std::filesystem::perm_options::add );
+                    std::filesystem::permissions( dst_path, std::filesystem::perms::others_read, std::filesystem::perm_options::add );
                     break;
                 case 2:
-                    path_ = this->exec_path.string()+"/uninstall.exe";
+                    // rw r -
                     break;
                 default:
-                    throw( "Unexpected OS: "[this->OS] );
+                    throw( "LogDoctor: copyExecutable(): Unexpected OS: "[this->OS] );
             }
-            ok = std::filesystem::copy_file( exec_name, path_, std::filesystem::copy_options::overwrite_existing, err );
-            // set permission
-            if ( !ok ) {
-                // failed to copy
-                DialogMsg dialog = DialogMsg(
-                    MainWindow::tr( "Installation failed" ),
-                    QString("%1:\n%2").arg(
-                        MainWindow::tr( "Failed to copy the resource" ),
-                        QString::fromStdString( path_.string() ) ),
-                    QString::fromStdString( err.message() ), 2, nullptr );
-                std::ignore = dialog.exec();
 
-            } else {
-                try {
-                    std::filesystem::permissions( path_, std::filesystem::perms::owner_all, std::filesystem::perm_options::add );
-                    std::filesystem::permissions( path_, std::filesystem::perms::group_all, std::filesystem::perm_options::remove );
-                    std::filesystem::permissions( path_, std::filesystem::perms::group_read, std::filesystem::perm_options::add );
-                    std::filesystem::permissions( path_, std::filesystem::perms::others_all, std::filesystem::perm_options::remove );
-                    switch ( this->OS ) {
-                        case 1:
-                            // 7 5 4
-                        std::filesystem::permissions( path_, std::filesystem::perms::group_exec, std::filesystem::perm_options::add );
-                        std::filesystem::permissions( path_, std::filesystem::perms::others_read, std::filesystem::perm_options::add );
-                            break;
-                        case 2:
-                            // rw r -
-                            break;
-                        default:
-                            throw( "Unexpected OS: "[this->OS] );
-                    }
-                } catch (...) {
-                    ok = false;
-                    // failed set permissions
-                    DialogMsg dialog = DialogMsg(
-                        MainWindow::tr( "Installation failed" ),
-                        QString("%1:\n%2").arg(
-                            MainWindow::tr( "Failed to assign permissions to the resource" ),
-                            QString::fromStdString( path_.string() ) ),
-                        "", 2, nullptr );
-                    std::ignore = dialog.exec();
-                }
-            }
+        } catch (...) {
+            ok = false;
+            // failed set permissions
+            DialogMsg dialog = DialogMsg(
+                MainWindow::tr( "Installation failed" ),
+                QString("%1:\n%2").arg(
+                    MainWindow::tr( "Failed to assign permissions to the resource" ),
+                    QString::fromStdString( dst_path.string() ) ),
+                "", 2, nullptr );
+            std::ignore = dialog.exec();
         }
     }
+    return ok;
+}
 
-    if ( ok && this->OS != 3 ) { // mac .app contains these
-        this->ui->progressBar_Install->setValue( 90 );
-        this->ui->label_Install_Info->setText( MainWindow::tr( "Copying the icon ..." ) );
-        // move the icon
-        std::filesystem::path path;
-        switch ( this->OS ) {
-            case 1:
-                // unix
-                path = "/usr/share/icons/logdoctor.svg";
-                break;
-            case 2:
-                path = this->exec_path.string() + "/LogDoctor.svg";
-                break;
-            default:
-                throw( "Unexpected OS: "[this->OS] );
-        }
-        ok = std::filesystem::copy_file( "logdoctor.svg", path, std::filesystem::copy_options::overwrite_existing, err );
-        if ( !ok ) {
+
+bool MainWindow::copyConfigfile()
+{
+    bool ok = true;
+    std::error_code err;
+
+    const std::filesystem::path src_path = "installation_stuff/logdoctor.conf";
+    const std::filesystem::path dst_path = this->conf_path.string()+"/logdoctor.conf";
+
+    ok = std::filesystem::copy_file( src_path, dst_path, std::filesystem::copy_options::overwrite_existing, err );
+    if ( !ok ) {
+        // failed to move
+        DialogMsg dialog = DialogMsg(
+            MainWindow::tr( "Installation failed" ),
+            QString("%1:\n%2").arg(
+                MainWindow::tr( "Failed to copy the resource" ),
+                QString::fromStdString( dst_path.string() ) ),
+            QString::fromStdString( err.message() ), 2, nullptr );
+        std::ignore = dialog.exec();
+    }
+    return ok;
+}
+
+
+bool MainWindow::copyResources()
+{
+    bool ok = true;
+    std::error_code err;
+
+    std::vector<std::filesystem::path> names = { "/help" };
+    if ( this->OS != 3 ) { // mac .app already contains it
+        names.push_back( "/licenses" );
+    }
+    for ( const auto& name : names ) {
+        // remove the entries
+        const std::filesystem::path src_path = "installation_stuff/logdocdata/"+name;
+        const std::filesystem::path dst_path = this->data_path.string()+"/"+name;
+        std::filesystem::copy( src_path, dst_path, std::filesystem::copy_options::overwrite_existing | std::filesystem::copy_options::recursive, err );
+        if ( err.value() != 0 ) {
             // failed to move
+            ok = false;
             DialogMsg dialog = DialogMsg(
                 MainWindow::tr( "Installation failed" ),
                 QString("%1:\n%2").arg(
                     MainWindow::tr( "Failed to copy the resource" ),
-                    QString::fromStdString( path.string() ) ),
+                    QString::fromStdString( dst_path.string() ) ),
                 QString::fromStdString( err.message() ), 2, nullptr );
             std::ignore = dialog.exec();
+            break;
         }
+    }
+    return ok;
+}
 
 
-        // make the menu entry
-        if ( ok && this->make_menu_entry ) {
-            this->ui->progressBar_Install->setValue( 95 );
-            this->ui->label_Install_Info->setText( MainWindow::tr( "Creating the menu entry ..." ) );
-            std::filesystem::path p;
+bool MainWindow::copyUninstaller()
+{
+    bool ok = true;
+    std::error_code err;
+
+    std::filesystem::path src_path;
+    std::filesystem::path dst_path;
+    switch ( this->OS ) {
+        case 1:
+            src_path = "installation_stuff/uninstall";
+            dst_path = this->data_path.string()+"/uninstall";
+            break;
+        case 2:
+            src_path = "installation_stuff/uninstall.exe";
+            dst_path = this->exec_path.string()+"/uninstall.exe";
+            break;
+        default:
+            throw( "LogDoctor: copyUninstaller(): Unexpected OS: "[this->OS] );
+    }
+
+    ok = std::filesystem::copy_file( src_path, dst_path, std::filesystem::copy_options::overwrite_existing, err );
+    if ( !ok ) {
+        // failed to copy
+        DialogMsg dialog = DialogMsg(
+            MainWindow::tr( "Installation failed" ),
+            QString("%1:\n%2").arg(
+                MainWindow::tr( "Failed to copy the resource" ),
+                QString::fromStdString( dst_path.string() ) ),
+            QString::fromStdString( err.message() ), 2, nullptr );
+        std::ignore = dialog.exec();
+
+    } else {
+        // set permissions
+        try {
+            std::filesystem::permissions( dst_path, std::filesystem::perms::owner_all, std::filesystem::perm_options::add );
+            std::filesystem::permissions( dst_path, std::filesystem::perms::group_all, std::filesystem::perm_options::remove );
+            std::filesystem::permissions( dst_path, std::filesystem::perms::group_read, std::filesystem::perm_options::add );
+            std::filesystem::permissions( dst_path, std::filesystem::perms::others_all, std::filesystem::perm_options::remove );
             switch ( this->OS ) {
                 case 1:
-                    // unix
-                    p = this->home_path+"/.local/share/applications/LogDoctor.desktop";
-                    std::filesystem::rename( "LogDoctor.desktop", p, err );
-                    ok = std::filesystem::exists( p );
-                    if ( !ok ) {
-                        // failed to move
-                        DialogMsg dialog = DialogMsg(
-                            MainWindow::tr( "Error" ),
-                            QString("%1:\n%2").arg(
-                                MainWindow::tr( "Failed to create the menu entry" ),
-                                QString::fromStdString( p.string() ) ),
-                            QString::fromStdString( err.message() ), 1, nullptr );
-                        std::ignore = dialog.exec();
-                    }
+                    // 7 5 4
+                std::filesystem::permissions( dst_path, std::filesystem::perms::group_exec, std::filesystem::perm_options::add );
+                std::filesystem::permissions( dst_path, std::filesystem::perms::others_read, std::filesystem::perm_options::add );
                     break;
                 case 2:
-                    p = this->home_path.substr(0,2) + "/ProgramData/Microsoft/Windows/Start Menu/Programs/LogDoctor.exe";
-                    if ( std::filesystem::exists( p ) ) {
-                        // an old entry already exists, remove it
-                        std::ignore = std::filesystem::remove( p, err );
-                        ok = ! std::filesystem::exists( p );
-                    }
-                    if ( ok ) {
-                        std::filesystem::create_symlink( this->exec_path.string()+"/LogDoctor.exe", p, err );
-                        if ( !std::filesystem::exists( p ) ) {
-                            // failed to create
-                            ok = false;
-                        }
-                    }
-                    if ( !ok ) {
-                        DialogMsg dialog = DialogMsg(
-                            MainWindow::tr( "Error" ),
-                            QString("%1:\n%2").arg(
-                                MainWindow::tr( "Failed to create the menu entry" ),
-                                QString::fromStdString( p.string() ) ),
-                            QString::fromStdString( err.message() ), 1, nullptr );
-                        std::ignore = dialog.exec();
-                    }
+                    // rw r -
                     break;
-                case 3:
-                    // still have to understand apple
-                    break;
+                default:
+                    throw( "LogDoctor: copyUninstaller(): Unexpected OS: "[this->OS] );
             }
+
+        } catch (...) {
+            ok = false;
+            // failed set permissions
+            DialogMsg dialog = DialogMsg(
+                MainWindow::tr( "Installation failed" ),
+                QString("%1:\n%2").arg(
+                    MainWindow::tr( "Failed to assign permissions to the resource" ),
+                    QString::fromStdString( dst_path.string() ) ),
+                "", 2, nullptr );
+            std::ignore = dialog.exec();
         }
     }
-
-    // proocess finished
-    if ( ok ) {
-        this->ui->progressBar_Install->setValue( 100 );
-        this->ui->label_Install_Info->setText( MainWindow::tr( "Final steps ..." ) );
-        // succesfully
-        this->ui->label_Done_Status->setText( MainWindow::tr( "Installation successful" ) );
-    } else {
-        // with a failure
-        this->ui->label_Done_Status->setText( MainWindow::tr( "Installation failed" ) );
-        this->ui->label_Done_Info->setText( MainWindow::tr( "An error occured while installing LogDoctor" ) );
-    }
-    this->installing = false;
+    return ok;
 }
+
+
+bool MainWindow::copyIcon()
+{
+    bool ok = true;
+    std::error_code err;
+
+    const std::filesystem::path src_path = "installation_stuff/logdoctor.svg";
+    std::filesystem::path dst_path;
+    switch ( this->OS ) {
+        case 1:
+            // unix
+            dst_path = "/usr/share/icons/logdoctor.svg";
+            break;
+        case 2:
+            // windows
+            dst_path = this->exec_path.string() + "/LogDoctor.svg";
+            break;
+        default:
+            throw( "LogDoctor: copyIcon(): Unexpected OS: "[this->OS] );
+    }
+
+    ok = std::filesystem::copy_file( src_path, dst_path, std::filesystem::copy_options::overwrite_existing, err );
+    if ( !ok ) {
+        // failed
+        DialogMsg dialog = DialogMsg(
+            MainWindow::tr( "Installation failed" ),
+            QString("%1:\n%2").arg(
+                MainWindow::tr( "Failed to copy the resource" ),
+                QString::fromStdString( dst_path.string() ) ),
+            QString::fromStdString( err.message() ), 2, nullptr );
+        std::ignore = dialog.exec();
+    }
+    return ok;
+}
+
+
+bool MainWindow::makeMenuEntry()
+{
+    bool ok = true;
+    std::error_code err;
+
+    std::filesystem::path src_path;
+    std::filesystem::path dst_path;
+    switch ( this->OS ) {
+
+        case 1:
+            // unix
+            src_path = "installation_stuff/LogDoctor.desktop";
+            dst_path = this->home_path+"/.local/share/applications/LogDoctor.desktop";
+            ok = std::filesystem::copy_file( src_path, dst_path, std::filesystem::copy_options::overwrite_existing, err );
+            break;
+
+        case 2:
+            // windows
+            src_path = this->exec_path.string()+"/LogDoctor.exe";
+            dst_path = this->home_path.substr(0,2) + "/ProgramData/Microsoft/Windows/Start Menu/Programs/LogDoctor.exe";
+            if ( std::filesystem::exists( dst_path ) ) {
+                // an old entry already exists, remove it
+                std::ignore = std::filesystem::remove( dst_path, err );
+                ok = ! std::filesystem::exists( dst_path );
+            }
+            if ( ok ) {
+                std::filesystem::create_symlink( src_path, dst_path, err );
+                if ( !std::filesystem::exists( dst_path ) ) {
+                    // failed to create
+                    ok = false;
+                }
+            }
+            break;
+        default:
+            throw( "LogDoctor: makeMenuEntry(): Unexpected OS: "[this->OS] );
+    }
+
+    if ( !ok ) {
+        // failed
+        DialogMsg dialog = DialogMsg(
+            MainWindow::tr( "Error" ),
+            QString("%1:\n%2").arg(
+                MainWindow::tr( "Failed to create the menu entry" ),
+                QString::fromStdString( dst_path.string() ) ),
+            QString::fromStdString( err.message() ), 1, nullptr );
+        std::ignore = dialog.exec();
+    }
+    return ok;
+}
+
+
 
 
 
