@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.5)
 
-project(LogDoctorInstaller VERSION 1.0 LANGUAGES CXX)
+project(LogDoctorInstaller VERSION 1.01 LANGUAGES CXX)
 
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
@@ -72,17 +72,10 @@ endif()
 target_link_libraries(LogDoctorInstaller PRIVATE
     Qt${QT_VERSION_MAJOR}::Widgets)
 
-set_target_properties(LogDoctorInstaller PROPERTIES
-    #MACOSX_BUNDLE_GUI_IDENTIFIER my.example.com
-    MACOSX_BUNDLE_BUNDLE_VERSION ${PROJECT_VERSION}
-    MACOSX_BUNDLE_SHORT_VERSION_STRING ${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}
-    MACOSX_BUNDLE TRUE
-    WIN32_EXECUTABLE TRUE
-)
-
-install(TARGETS LogDoctorInstaller
-    BUNDLE DESTINATION .
-    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+if(WIN32)
+    set_target_properties(LogDoctorInstaller PROPERTIES
+        WIN32_EXECUTABLE TRUE)
+endif()
 
 if(QT_VERSION_MAJOR EQUAL 6)
     qt_finalize_executable(LogDoctorInstaller)
