@@ -800,9 +800,9 @@ bool MainWindow::copyResources()
     bool ok = true;
     std::error_code err;
 
-    std::vector<std::filesystem::path> names = { "/help" };
+    std::vector<std::string> names = { "help" };
     if ( this->OS != 3 ) { // mac .app already contains it
-        names.push_back( "/licenses" );
+        names.push_back( "licenses" );
     }
     for ( const auto& name : names ) {
         // remove the entries
