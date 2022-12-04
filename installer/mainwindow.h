@@ -76,7 +76,7 @@ private:
         const unsigned int OS = 1;
         const std::filesystem::path exec_path = "/usr/bin";
         const std::filesystem::path conf_path = home_path + "/.config/LogDoctor";
-        const std::filesystem::path data_path = home_path + "/.local/share/LogDoctor";
+        const std::filesystem::path data_path = "/usr/share/LogDoctor";
     #else
         #error "System not supported"
     #endif

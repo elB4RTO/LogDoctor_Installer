@@ -898,12 +898,12 @@ bool MainWindow::copyIcon()
     bool ok = true;
     std::error_code err;
 
-    const std::filesystem::path src_path = "installation_stuff/logdoctor.svg";
+    const std::filesystem::path src_path = "installation_stuff/LogDoctor.svg";
     std::filesystem::path dst_path;
     switch ( this->OS ) {
         case 1:
             // unix
-            dst_path = "/usr/share/icons/logdoctor.svg";
+            dst_path = "/usr/share/LogDoctor/LogDoctor.svg";
             break;
         case 2:
             // windows
