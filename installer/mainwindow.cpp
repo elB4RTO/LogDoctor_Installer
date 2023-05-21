@@ -73,6 +73,11 @@ MainWindow::~MainWindow()
     delete this->installer_timer;
 }
 
+void MainWindow::on_button_Close_clicked()
+{
+    this->close();
+}
+
 
 ///////////////
 //// UTILS ////
@@ -274,27 +279,31 @@ void MainWindow::Install()
             }
         }
 
-        if ( ok && this->OS != 3 ) { // mac .app contains it
-            this->ui->progressBar_Install->setValue( 85 );
-            this->ui->label_Install_Info->setText( MainWindow::tr( "Copying the uninstaller ..." ) );
-            // move the uninstaller
-            ok = this->copyUninstaller();
-        }
+        #if !defined( Q_OS_MACOS )
+            if ( ok ) { // mac .app contains it
+                this->ui->progressBar_Install->setValue( 85 );
+                this->ui->label_Install_Info->setText( MainWindow::tr( "Copying the uninstaller ..." ) );
+                // move the uninstaller
+                ok = this->copyUninstaller();
+            }
+        #endif
     }
 
-    if ( ok && this->OS != 3 ) { // mac .app contains these
-        this->ui->progressBar_Install->setValue( 90 );
-        this->ui->label_Install_Info->setText( MainWindow::tr( "Copying the icon ..." ) );
-        // move the icon
-        ok = this->copyIcon();
+    #if !defined( Q_OS_MACOS )
+        if ( ok ) { // mac .app contains these
+            this->ui->progressBar_Install->setValue( 90 );
+            this->ui->label_Install_Info->setText( MainWindow::tr( "Copying the icon ..." ) );
+            // move the icon
+            ok = this->copyIcon();
 
-        // make the menu entry
-        if ( ok && this->make_menu_entry ) {
-            this->ui->progressBar_Install->setValue( 95 );
-            this->ui->label_Install_Info->setText( MainWindow::tr( "Creating the menu entry ..." ) );
-            ok = this->makeMenuEntry();
+            // make the menu entry
+            if ( ok && this->make_menu_entry ) {
+                this->ui->progressBar_Install->setValue( 95 );
+                this->ui->label_Install_Info->setText( MainWindow::tr( "Creating the menu entry ..." ) );
+                ok = this->makeMenuEntry();
+            }
         }
-    }
+    #endif
 
     // proocess finished
     if ( ok ) {
@@ -323,8 +332,21 @@ bool MainWindow::checkExecutablePath()
     if ( ! std::filesystem::exists( this->exec_path ) ) {
         this->ui->progressBar_Install->setValue( 10 );
         // path does not exists
-        if ( this->OS != 2 ) {
-            // on unix/mac. path is (supposedly) always present
+        #if defined( Q_OS_WINDOWS )
+            // must create the new folder
+            ok = std::filesystem::create_directory( this->exec_path, err );
+            if ( !ok ) {
+                    // failed to create
+                    DialogMsg dialog = DialogMsg(
+                        MainWindow::tr( "Installation failed" ),
+                        QString("%1:\n%2").arg(
+                            MainWindow::tr( "Failed to create the directory" ),
+                            QString::fromStdString( this->exec_path.string() ) ),
+                        QString::fromStdString( err.message() ), 2, nullptr );
+                    std::ignore = dialog.exec();
+            }
+        #else
+            // unix-like. path is (supposedly) always present
             ok = false;
             DialogMsg dialog = DialogMsg(
                 MainWindow::tr( "Installation failed" ),
@@ -333,27 +355,14 @@ bool MainWindow::checkExecutablePath()
                     QString::fromStdString( this->exec_path.string() ) ),
                 QString::fromStdString( err.message() ), 2, nullptr );
             std::ignore = dialog.exec();
-        } else {
-            // on windows. must create the new folder
-            ok = std::filesystem::create_directory( this->exec_path, err );
-            if ( !ok ) {
-                // failed to create
-                DialogMsg dialog = DialogMsg(
-                    MainWindow::tr( "Installation failed" ),
-                    QString("%1:\n%2").arg(
-                        MainWindow::tr( "Failed to create the directory" ),
-                        QString::fromStdString( this->exec_path.string() ) ),
-                    QString::fromStdString( err.message() ), 2, nullptr );
-                std::ignore = dialog.exec();
-            }
-        }
+        #endif
 
     } else {
         this->ui->progressBar_Install->setValue( 5 );
         // path exists
-        if ( this->OS == 1 ) {
-            // on unix. check if the executable already exists
-            const std::filesystem::path path = this->exec_path.string() + "/logdoctor";
+        #if defined( Q_OS_LINUX ) || defined( Q_OS_BSD4 )
+            // check if the executable already exists
+            const std::filesystem::path path = this->exec_path / "logdoctor";
             if ( std::filesystem::exists( path ) ) {
                 // an entry already exists, ask to overwrite it
                 {
@@ -385,7 +394,7 @@ bool MainWindow::checkExecutablePath()
                     }
                 }
             }
-        } else {
+        #else
             // on windows/mac
             if ( ! std::filesystem::is_directory( this->exec_path ) ) {
                 // not a directory, ask to overwrite it
@@ -430,13 +439,13 @@ bool MainWindow::checkExecutablePath()
             } else {
                 this->ui->progressBar_Install->setValue( 5 );
                 // installation altready exists, check the executable
-                const std::string ext = (this->OS==2) ? ".exe" : ".app";
-                std::vector<std::string> names = {"/LogDoctor","/uninstall"};
-                if ( this->OS == 3 ) {
-                    names.pop_back();
-                }
+                #if defined( Q_OS_WINDOWS )
+                    const std::vector<std::string> names = {"LogDoctor.exe","uninstall.exe"};
+                #elif defined( Q_OS_MACOS )
+                    const std::vector<std::string> names = {"LogDoctor.app"};
+                #endif
                 for ( const auto& name : names ) {
-                    const std::filesystem::path path = this->exec_path.string() + name + ext;
+                    const std::filesystem::path path = this->exec_path / name;
                     if ( std::filesystem::exists( path ) ) {
                         // an entry already exists, ask to overwrite it
                         {
@@ -470,7 +479,7 @@ bool MainWindow::checkExecutablePath()
                     }
                 }
             }
-        }
+        #endif
     }
     return ok;
 }
@@ -541,7 +550,7 @@ bool MainWindow::checkConfigsPath()
         } else {
             this->ui->progressBar_Install->setValue( 20 );
             // is a directory: probably an installation already exists, check if a cofiguration file is present
-            const std::filesystem::path path = this->conf_path.string() + "/logdoctor.conf";
+            const std::filesystem::path path = this->conf_path / "logdoctor.conf";
             if ( std::filesystem::exists( path ) ) {
                 // a configuration file already exists, ask to overwrite it or not
                 {
@@ -663,11 +672,14 @@ bool MainWindow::checkAppdataPath()
             if ( ok ) {
                 this->ui->progressBar_Install->setValue( 40 );
                 // agreed on overwriting content, remove it
-                std::vector<std::filesystem::path> paths = {
-                    this->data_path.string() + "/help" };
-                if ( this->OS != 3 ) { // mac .app already contains it
-                    paths.push_back( this->data_path.string() + "/licenses" );
-                }
+                #if defined( Q_OS_MACOS )
+                    const std::vector<std::filesystem::path> paths = {
+                        this->data_path / "help" };
+                #else
+                    const std::vector<std::filesystem::path> paths = {
+                        this->data_path / "help",
+                        this->data_path / "licenses" }; // mac .app already contains it
+                #endif
                 for ( const auto& path : paths ) {
                     // remove the entries
                     if ( !std::filesystem::exists( path ) ) {
@@ -698,29 +710,25 @@ bool MainWindow::copyExecutable()
     bool ok = true;
     std::error_code err;
 
-    std::string exec_name;
-    switch ( this->OS ) {
-        case 1:
-            exec_name = "logdoctor"; break;
-        case 2:
-            exec_name = "LogDoctor.exe"; break;
-        case 3:
-            exec_name = "LogDoctor.app"; break;
-        default:
-            throw( "LogDoctor: copyExecutable(): Unexpected OS: "[this->OS] );
-    }
+    #if defined( Q_OS_LINUX ) || defined( Q_OS_BSD4 )
+        const std::string exec_name = "logdoctor";
+    #elif defined( Q_OS_WINDOWS )
+        const std::string exec_name = "LogDoctor.exe";
+    #elif defined( Q_OS_MACOS )
+        const std::string exec_name = "LogDoctor.app";
+    #endif
 
     const std::filesystem::path src_path = "installation_stuff/"+exec_name;
-    const std::filesystem::path dst_path = this->exec_path.string()+"/"+exec_name;
+    const std::filesystem::path dst_path = this->exec_path / exec_name;
 
-    if ( this->OS == 3 ) {
+    #if defined( Q_OS_MACOS )
         std::filesystem::copy( src_path, dst_path, std::filesystem::copy_options::overwrite_existing | std::filesystem::copy_options::recursive, err );
         if ( err.value() != 0 ) {
             ok = false;
         }
-    } else {
+    #else
         ok = std::filesystem::copy_file( src_path, dst_path, std::filesystem::copy_options::overwrite_existing, err );
-    }
+    #endif
 
     if ( !ok ) {
         // failed to copy
@@ -740,21 +748,18 @@ bool MainWindow::copyExecutable()
             std::filesystem::permissions( dst_path, std::filesystem::perms::group_all, std::filesystem::perm_options::remove );
             std::filesystem::permissions( dst_path, std::filesystem::perms::group_read, std::filesystem::perm_options::add );
             std::filesystem::permissions( dst_path, std::filesystem::perms::others_all, std::filesystem::perm_options::remove );
-            switch ( this->OS ) {
-                case 1:
-                    // 7 5 5
-                    std::filesystem::permissions( dst_path, std::filesystem::perms::others_exec, std::filesystem::perm_options::add );
-                case 3:
-                    // 7 5 4
-                    std::filesystem::permissions( dst_path, std::filesystem::perms::group_exec, std::filesystem::perm_options::add );
-                    std::filesystem::permissions( dst_path, std::filesystem::perms::others_read, std::filesystem::perm_options::add );
-                    break;
-                case 2:
-                    // rw r -
-                    break;
-                default:
-                    throw( "LogDoctor: copyExecutable(): Unexpected OS: "[this->OS] );
-            }
+            #if defined( Q_OS_LINUX ) || defined( Q_OS_BSD4 )
+                // 7 5 5
+                std::filesystem::permissions( dst_path, std::filesystem::perms::group_exec, std::filesystem::perm_options::add );
+                std::filesystem::permissions( dst_path, std::filesystem::perms::others_read, std::filesystem::perm_options::add );
+                std::filesystem::permissions( dst_path, std::filesystem::perms::others_exec, std::filesystem::perm_options::add );
+            #elif defined( Q_OS_MACOS )
+                // 7 5 4
+                std::filesystem::permissions( dst_path, std::filesystem::perms::group_exec, std::filesystem::perm_options::add );
+                std::filesystem::permissions( dst_path, std::filesystem::perms::others_read, std::filesystem::perm_options::add );
+            #elif defined( Q_OS_WINDOWS )
+                // rw r -
+            #endif
 
         } catch (...) {
             ok = false;
@@ -778,7 +783,7 @@ bool MainWindow::copyConfigfile()
     std::error_code err;
 
     const std::filesystem::path src_path = "installation_stuff/logdoctor.conf";
-    const std::filesystem::path dst_path = this->conf_path.string()+"/logdoctor.conf";
+    const std::filesystem::path dst_path = this->conf_path / "logdoctor.conf";
 
     ok = std::filesystem::copy_file( src_path, dst_path, std::filesystem::copy_options::overwrite_existing, err );
     if ( !ok ) {
@@ -800,14 +805,18 @@ bool MainWindow::copyResources()
     bool ok = true;
     std::error_code err;
 
-    std::vector<std::string> names = { "help" };
-    if ( this->OS != 3 ) { // mac .app already contains it
-        names.push_back( "licenses" );
-    }
+    #if defined( Q_OS_MACOS )
+        const std::vector<std::string> names = {
+            "help" };
+    #else
+        const std::vector<std::string> names = {
+            "help",
+            "licenses" }; // mac .app already contains it
+    #endif
     for ( const auto& name : names ) {
         // remove the entries
         const std::filesystem::path src_path = "installation_stuff/logdocdata/"+name;
-        const std::filesystem::path dst_path = this->data_path.string()+"/"+name;
+        const std::filesystem::path dst_path = this->data_path / name;
         std::filesystem::copy( src_path, dst_path, std::filesystem::copy_options::overwrite_existing | std::filesystem::copy_options::recursive, err );
         if ( err.value() != 0 ) {
             // failed to move
@@ -831,20 +840,16 @@ bool MainWindow::copyUninstaller()
     bool ok = true;
     std::error_code err;
 
-    std::filesystem::path src_path;
-    std::filesystem::path dst_path;
-    switch ( this->OS ) {
-        case 1:
-            src_path = "installation_stuff/uninstall";
-            dst_path = this->data_path.string()+"/uninstall";
-            break;
-        case 2:
-            src_path = "installation_stuff/uninstall.exe";
-            dst_path = this->exec_path.string()+"/uninstall.exe";
-            break;
-        default:
-            throw( "LogDoctor: copyUninstaller(): Unexpected OS: "[this->OS] );
-    }
+    #if defined( Q_OS_LINUX ) || defined( Q_OS_BSD4 )
+        const std::filesystem::path src_path = "installation_stuff/uninstall";
+        const std::filesystem::path dst_path = this->data_path / "uninstall";
+    #elif defined( Q_OS_WINDOWS )
+        const std::filesystem::path src_path = "installation_stuff/uninstall.exe";
+        const std::filesystem::path dst_path = this->exec_path / "uninstall.exe";
+    #else
+        // macOS should not run this method
+        throw( "LogDoctor: copyUninstaller(): Unexpected OS" );
+    #endif
 
     ok = std::filesystem::copy_file( src_path, dst_path, std::filesystem::copy_options::overwrite_existing, err );
     if ( !ok ) {
@@ -864,18 +869,14 @@ bool MainWindow::copyUninstaller()
             std::filesystem::permissions( dst_path, std::filesystem::perms::group_all, std::filesystem::perm_options::remove );
             std::filesystem::permissions( dst_path, std::filesystem::perms::group_read, std::filesystem::perm_options::add );
             std::filesystem::permissions( dst_path, std::filesystem::perms::others_all, std::filesystem::perm_options::remove );
-            switch ( this->OS ) {
-                case 1:
-                    // 7 5 4
+            #if defined( Q_OS_LINUX ) || defined( Q_OS_BSD4 )
+                // 7 5 5
                 std::filesystem::permissions( dst_path, std::filesystem::perms::group_exec, std::filesystem::perm_options::add );
                 std::filesystem::permissions( dst_path, std::filesystem::perms::others_read, std::filesystem::perm_options::add );
-                    break;
-                case 2:
-                    // rw r -
-                    break;
-                default:
-                    throw( "LogDoctor: copyUninstaller(): Unexpected OS: "[this->OS] );
-            }
+                std::filesystem::permissions( dst_path, std::filesystem::perms::others_exec, std::filesystem::perm_options::add );
+            #elif defined( Q_OS_WINDOWS )
+                // rw r -
+            #endif
 
         } catch (...) {
             ok = false;
@@ -899,19 +900,14 @@ bool MainWindow::copyIcon()
     std::error_code err;
 
     const std::filesystem::path src_path = "installation_stuff/LogDoctor.svg";
-    std::filesystem::path dst_path;
-    switch ( this->OS ) {
-        case 1:
-            // unix
-            dst_path = "/usr/share/LogDoctor/LogDoctor.svg";
-            break;
-        case 2:
-            // windows
-            dst_path = this->exec_path.string() + "/LogDoctor.svg";
-            break;
-        default:
-            throw( "LogDoctor: copyIcon(): Unexpected OS: "[this->OS] );
-    }
+    #if defined( Q_OS_LINUX ) || defined( Q_OS_BSD4 )
+        const std::filesystem::path dst_path = "/usr/share/LogDoctor/LogDoctor.svg";
+    #elif defined( Q_OS_WINDOWS )
+        const std::filesystem::path dst_path = this->exec_path / "LogDoctor.svg";
+    #else
+        // macOS should not run this method
+        throw( "LogDoctor: copyIcon(): Unexpected OS" );
+    #endif
 
     ok = std::filesystem::copy_file( src_path, dst_path, std::filesystem::copy_options::overwrite_existing, err );
     if ( !ok ) {
@@ -933,37 +929,33 @@ bool MainWindow::makeMenuEntry()
     bool ok = true;
     std::error_code err;
 
-    std::filesystem::path src_path;
-    std::filesystem::path dst_path;
-    switch ( this->OS ) {
-
-        case 1:
-            // unix
-            src_path = "installation_stuff/LogDoctor.desktop";
-            dst_path = this->home_path+"/.local/share/applications/LogDoctor.desktop";
-            ok = std::filesystem::copy_file( src_path, dst_path, std::filesystem::copy_options::overwrite_existing, err );
-            break;
-
-        case 2:
-            // windows
-            src_path = this->exec_path.string()+"/LogDoctor.exe";
-            dst_path = this->home_path.substr(0,2) + "/ProgramData/Microsoft/Windows/Start Menu/Programs/LogDoctor.exe";
-            if ( std::filesystem::exists( dst_path ) ) {
-                // an old entry already exists, remove it
-                std::ignore = std::filesystem::remove( dst_path, err );
-                ok = ! std::filesystem::exists( dst_path );
+    #if defined( Q_OS_LINUX )
+        const std::filesystem::path src_path = "installation_stuff/LogDoctor.desktop";
+        const std::filesystem::path dst_path = "/usr/share/applications/LogDoctor.desktop";
+        ok = std::filesystem::copy_file( src_path, dst_path, std::filesystem::copy_options::overwrite_existing, err );
+    #elif defined( Q_OS_BSD4 )
+        const std::filesystem::path src_path = "installation_stuff/LogDoctor.desktop";
+        const std::filesystem::path dst_path = "/usr/local/share/applications/LogDoctor.desktop";
+        ok = std::filesystem::copy_file( src_path, dst_path, std::filesystem::copy_options::overwrite_existing, err );
+    #elif defined( Q_OS_WINDOWS )
+        const std::filesystem::path src_path = this->exec_path / "LogDoctor.exe";
+        const std::filesystem::path dst_path = this->home_path.substr(0,2) + "/ProgramData/Microsoft/Windows/Start Menu/Programs/LogDoctor.exe";
+        if ( std::filesystem::exists( dst_path ) ) {
+            // an old entry already exists, remove it
+            std::ignore = std::filesystem::remove( dst_path, err );
+            ok = ! std::filesystem::exists( dst_path );
+        }
+        if ( ok ) {
+            std::filesystem::create_symlink( src_path, dst_path, err );
+            if ( !std::filesystem::exists( dst_path ) ) {
+                // failed to create
+                ok = false;
             }
-            if ( ok ) {
-                std::filesystem::create_symlink( src_path, dst_path, err );
-                if ( !std::filesystem::exists( dst_path ) ) {
-                    // failed to create
-                    ok = false;
-                }
-            }
-            break;
-        default:
-            throw( "LogDoctor: makeMenuEntry(): Unexpected OS: "[this->OS] );
-    }
+        }
+    #else
+        // macOS should not run this method
+        throw( "LogDoctor: makeMenuEntry(): Unexpected OS" );
+    #endif
 
     if ( !ok ) {
         // failed
@@ -976,13 +968,4 @@ bool MainWindow::makeMenuEntry()
         std::ignore = dialog.exec();
     }
     return ok;
-}
-
-
-
-
-
-void MainWindow::on_button_Close_clicked()
-{
-    this->close();
 }
