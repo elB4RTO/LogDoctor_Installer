@@ -64,9 +64,9 @@ private:
         const std::filesystem::path conf_path{ home_path + "/Lybrary/Preferences/LogDoctor" };
         const std::filesystem::path data_path{ home_path + "/Lybrary/Application Support/LogDoctor" };
     #elif defined( Q_OS_WINDOWS )
-        const std::filesystem::path exec_path{ home_path.substr(0,2) + "/Program Files/LogDoctor" };
-        const std::filesystem::path conf_path{ home_path + "/AppData/Local/LogDoctor" };
-        const std::filesystem::path data_path{ home_path + "/AppData/Local/LogDoctor" };
+        const std::filesystem::path exec_path{ std::filesystem::path{home_path.substr(0,2) + "/Program Files"}.make_preferred() };
+        const std::filesystem::path conf_path{ std::filesystem::path{home_path + "/AppData/Local/LogDoctor"}.make_preferred() };
+        const std::filesystem::path data_path{ std::filesystem::path{home_path + "/AppData/Local/LogDoctor"}.make_preferred() };
     #elif defined( Q_OS_LINUX ) || defined( Q_OS_BSD4 )
         const std::filesystem::path exec_path{ "/usr/bin" };
         const std::filesystem::path conf_path{ home_path + "/.config/LogDoctor" };
@@ -105,9 +105,13 @@ private:
     bool copyExecutable();
     bool copyConfigfile();
     bool copyResources();
-    bool copyUninstaller();
-    bool copyIcon();
-    bool makeMenuEntry();
+    #if defined( Q_OS_LINUX ) || defined( Q_OS_BSD4 )
+        bool copyUninstaller();
+    #endif
+    #if !defined( Q_OS_MACOS )
+        bool copyIcon();
+        bool makeMenuEntry();
+    #endif
 };
 
 #endif // MAINWINDOW_H
