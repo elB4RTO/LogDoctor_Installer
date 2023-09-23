@@ -211,7 +211,7 @@
     </message>
     <message>
         <source>A directory already exists for the application data</source>
-        <translation>Esiste già una directory per le risorse dell&apos;applicazione</translation>
+        <translation>Esiste già una cartella per le risorse dell&apos;applicazione</translation>
     </message>
     <message>
         <source>Failed to create the directory</source>
@@ -236,6 +236,18 @@ Continue?</source>
         <translation>Se scegli di procedere, il contenuto verrà sovrascritto,
 ad eccezione dei database, che non verranno toccati
 Continuare?</translation>
+    </message>
+    <message>
+        <source>An entry with the same name already exists, but it&apos;s not a directory</source>
+        <translation>Esiste già un oggetto con lo stesso nome, ma non è una cartella</translation>
+    </message>
+    <message>
+        <source>Installation path already exists</source>
+        <translation>Il percorso di installazione esiste già</translation>
+    </message>
+    <message>
+        <source>To destination path</source>
+        <translation>Nella destinazione</translation>
     </message>
 </context>
 </TS>

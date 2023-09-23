@@ -237,5 +237,17 @@ Continue?</source>
 exception faite pour les databases, qui ne seront pas affectées
 Continuer?</translation>
     </message>
+    <message>
+        <source>An entry with the same name already exists, but it&apos;s not a directory</source>
+        <translation type="unfinished">Une entrée avec le même nom existe déjà, mais ce n&apos;est pas un répertoire</translation>
+    </message>
+    <message>
+        <source>Installation path already exists</source>
+        <translation type="unfinished">Le chemin d&apos;installation existe déjà</translation>
+    </message>
+    <message>
+        <source>To destination path</source>
+        <translation type="unfinished">Vers le chemin de destination</translation>
+    </message>
 </context>
 </TS>
