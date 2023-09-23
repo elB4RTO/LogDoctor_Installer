@@ -21,7 +21,6 @@ class MainWindow : public QMainWindow
 
 public:
     explicit MainWindow(QWidget *parent = nullptr);
-    ~MainWindow();
 
 private slots:
 
@@ -53,7 +52,7 @@ private slots:
     void on_button_Close_clicked();
 
 private:
-    Ui::MainWindow *ui;
+    QSharedPointer<Ui::MainWindow> ui;
 
     // operating system
     const std::string cleanPath( const QString& path );
@@ -91,12 +90,12 @@ private:
 
     // work related
     int step;
-    bool make_menu_entry = true;
+    bool make_menu_entry{ true };
     // install
-    QTimer* waiter_timer = new QTimer();
-    QTimer* installer_timer = new QTimer();
+    QScopedPointer<QTimer> waiter_timer;
+    QScopedPointer<QTimer> installer_timer;
     bool installing;
-    bool overwrite_conf_file = false;
+    bool overwrite_conf_file{ false };
 
     void startInstalling();
     bool checkExecutablePath();

@@ -66,13 +66,6 @@ MainWindow::MainWindow(QWidget *parent)
 
 }
 
-MainWindow::~MainWindow()
-{
-    delete this->ui;
-    delete this->waiter_timer;
-    delete this->installer_timer;
-}
-
 void MainWindow::on_button_Close_clicked()
 {
     this->close();
@@ -208,14 +201,12 @@ void MainWindow::on_checkBox_MenuEntry_toggled(bool checked)
 void MainWindow::startInstalling()
 {
     this->installing = true;
-    delete this->waiter_timer;
-    this->waiter_timer = new QTimer(this);
-    connect(this->waiter_timer, SIGNAL(timeout()), this, SLOT(checkInstallProgress()));
+    this->waiter_timer.reset( new QTimer(this) );
+    connect(this->waiter_timer.get(), &QTimer::timeout, this, &MainWindow::checkInstallProgress);
     // worker
-    delete this->installer_timer;
-    this->installer_timer = new QTimer(this);
+    this->installer_timer.reset( new QTimer(this) );
     this->installer_timer->setSingleShot( true );
-    connect(this->installer_timer, SIGNAL(timeout()), this, SLOT(Install()));
+    connect(this->installer_timer.get(), &QTimer::timeout, this, &MainWindow::Install);
     // run
     this->waiter_timer->start(250);
     this->installer_timer->start(250);
@@ -474,7 +465,10 @@ bool MainWindow::checkConfigsPath()
         this->ui->progressBar_Install->setValue( 25 );
         // path does not exists, create it
         ok = std::filesystem::create_directory( this->conf_path, err );
-        if ( !ok ) {
+        if ( ok ) {
+            // will copy the new file
+            this->overwrite_conf_file = true;
+        } else {
             // failed to create
             DialogMsg dialog(
                 MainWindow::tr( "Installation failed" ),
@@ -636,7 +630,16 @@ bool MainWindow::checkAppdataPath()
             }
         } else {
             // is a directory: probably an installation already exists
-            {
+            #if defined( Q_OS_MACOS )
+                const std::vector<std::filesystem::path> paths{
+                    this->data_path / "help" };
+            #else
+                const std::vector<std::filesystem::path> paths{
+                    this->data_path / "help",
+                    this->data_path / "licenses" }; // OSX app bundle already contains it
+            #endif
+            // check if the data path contains any of the entries
+            if ( std::any_of( paths.cbegin(), paths.cend(), [](const auto& p){return std::filesystem::exists(p);} ) ) {
                 DialogBool dialog(
                     MainWindow::tr( "Conflict" ),
                     QString("%1:\n%2\n\n%3").arg(
@@ -649,17 +652,9 @@ bool MainWindow::checkAppdataPath()
             if ( ok ) {
                 this->ui->progressBar_Install->setValue( 40 );
                 // agreed on overwriting content, remove it
-                #if defined( Q_OS_MACOS )
-                    const std::vector<std::filesystem::path> paths{
-                        this->data_path / "help" };
-                #else
-                    const std::vector<std::filesystem::path> paths{
-                        this->data_path / "help",
-                        this->data_path / "licenses" }; // mac .app already contains it
-                #endif
                 for ( const auto& path : paths ) {
                     // remove the entries
-                    if ( !std::filesystem::exists( path ) ) {
+                    if ( std::filesystem::exists( path ) ) {
                         std::ignore = std::filesystem::remove_all( path, err );
                         ok = ! std::filesystem::exists( path );
                         if ( !ok ) {
@@ -691,10 +686,10 @@ bool MainWindow::copyExecutable()
         const std::filesystem::path src_path{ "logdoctor" };
         const std::filesystem::path dst_path{ this->exec_path / "logdoctor" };
     #elif defined( Q_OS_WINDOWS )
-        const std::filesystem::path src_path{ std::filesystem::path{"../LogDoctor"}.make_preferred() };
+        const std::filesystem::path src_path{ std::filesystem::canonical("../LogDoctor").make_preferred() };
         const std::filesystem::path dst_path{ this->exec_path / "LogDoctor" };
     #elif defined( Q_OS_MACOS )
-        const std::filesystem::path src_path{ "LogDoctor.app" };
+        const std::filesystem::path src_path{ std::filesystem::canonical("./LogDoctor.app") };
         const std::filesystem::path dst_path{ this->exec_path / "LogDoctor.app" };
     #endif
 
@@ -708,7 +703,7 @@ bool MainWindow::copyExecutable()
                 // remove the installer
                 std::error_code _;
                 const std::filesystem::path installer_path{ dst_path / "install.exe" };
-                std::ignore = std::filesystem::remove( dst_path, _ ); // no need to abort the installation in case of failure
+                std::ignore = std::filesystem::remove( installer_path, _ ); // no need to abort the installation in case of failure
             }
         #endif
     #else
@@ -770,9 +765,9 @@ bool MainWindow::copyConfigfile()
     std::error_code err;
 
     #if defined( Q_OS_WINDOWS )
-        const std::filesystem::path src_path{ std::filesystem::path{"../logdoctor.conf"}.make_preferred() };
+        const std::filesystem::path src_path{ std::filesystem::canonical("../logdoctor.conf").make_preferred() };
     #else
-        const std::filesystem::path src_path{ "logdoctor.conf" };
+        const std::filesystem::path src_path{ std::filesystem::canonical("./logdoctor.conf") };
     #endif
     const std::filesystem::path dst_path{ this->conf_path / "logdoctor.conf" };
 
@@ -809,9 +804,9 @@ bool MainWindow::copyResources()
     for ( const auto& name : names ) {
         // remove the entries
         #if defined( Q_OS_WINDOWS )
-        const std::filesystem::path src_path{ std::filesystem::path{"../logdocdata/"+name}.make_preferred() };
+        const std::filesystem::path src_path{ std::filesystem::canonical("../logdocdata").make_preferred() / name };
         #else
-            const std::filesystem::path src_path{ "logdocdata/"+name };
+            const std::filesystem::path src_path{ std::filesystem::canonical("logdocdata") / name };
         #endif
         const std::filesystem::path dst_path{ this->data_path / name };
         std::filesystem::copy( src_path, dst_path, std::filesystem::copy_options::overwrite_existing | std::filesystem::copy_options::recursive, err );
@@ -892,10 +887,10 @@ bool MainWindow::copyIcon()
     std::error_code err;
 
     #if defined( Q_OS_LINUX ) || defined( Q_OS_BSD4 )
-        const std::filesystem::path src_path{ "LogDoctor.svg" };
+        const std::filesystem::path src_path{ std::filesystem::canonical("LogDoctor.svg") };
         const std::filesystem::path dst_path{ "/usr/share/LogDoctor/LogDoctor.svg" };
     #elif defined( Q_OS_WINDOWS )
-        const std::filesystem::path src_path{ std::filesystem::path{"../LogDoctor.svg"}.make_preferred() };
+        const std::filesystem::path src_path{ std::filesystem::canonical("../LogDoctor.svg").make_preferred() };
         const std::filesystem::path dst_path{ this->exec_path / "LogDoctor" / "LogDoctor.svg" };
     #else
         throw( "LogDoctor: copyIcon(): Unexpected OS" );
