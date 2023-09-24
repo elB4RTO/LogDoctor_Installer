@@ -7,12 +7,22 @@
 
 #include <QFontDatabase>
 
+#if defined( Q_OS_LINUX ) || defined( Q_OS_BSD4 )// || defined( Q_OS_MACOS )
+    #include <unistd.h>
+    #include <pwd.h>
+#endif
+
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
 {
-    ui->setupUi(this);
+    this->ui->setupUi(this);
+    #if defined( Q_OS_MACOS )
+        this->ui->checkBox_MenuEntry->setChecked(false);
+        this->ui->checkBox_MenuEntry->setCheckable(false);
+        this->ui->checkBox_MenuEntry->setEnabled(false);
+    #endif
 
     // load the font
     const QString font_family = QFontDatabase::applicationFontFamilies(
@@ -270,7 +280,7 @@ void MainWindow::Install()
             }
         }
 
-        #if defined( Q_OS_LINUX ) || defined( Q_OS_BSD4 )
+        #if !defined( Q_OS_MACOS ) && (defined( Q_OS_LINUX ) || defined( Q_OS_BSD4 ))
             if ( ok ) { // OSX app bundle contains it, Windows copyed it already
                 this->ui->progressBar_Install->setValue( 85 );
                 this->ui->label_Install_Info->setText( MainWindow::tr( "Copying the uninstaller ..." ) );
@@ -334,7 +344,7 @@ bool MainWindow::checkExecutablePath()
     } else {
         this->ui->progressBar_Install->setValue( 5 );
         // path exists
-        #if defined( Q_OS_LINUX ) || defined( Q_OS_BSD4 )
+        #if !defined( Q_OS_MACOS ) && (defined( Q_OS_LINUX ) || defined( Q_OS_BSD4 ))
             // check if the executable already exists
             const std::filesystem::path path{ this->exec_path / "logdoctor" };
             if ( std::filesystem::exists( path ) ) {
@@ -682,15 +692,15 @@ bool MainWindow::copyExecutable()
     bool ok{ true };
     std::error_code err;
 
-    #if defined( Q_OS_LINUX ) || defined( Q_OS_BSD4 )
-        const std::filesystem::path src_path{ "logdoctor" };
-        const std::filesystem::path dst_path{ this->exec_path / "logdoctor" };
+    #if defined( Q_OS_MACOS )
+        const std::filesystem::path src_path{ std::filesystem::canonical("./LogDoctor.app") };
+        const std::filesystem::path dst_path{ this->exec_path / "LogDoctor.app" };
     #elif defined( Q_OS_WINDOWS )
         const std::filesystem::path src_path{ std::filesystem::canonical("../LogDoctor").make_preferred() };
         const std::filesystem::path dst_path{ this->exec_path / "LogDoctor" };
-    #elif defined( Q_OS_MACOS )
-        const std::filesystem::path src_path{ std::filesystem::canonical("./LogDoctor.app") };
-        const std::filesystem::path dst_path{ this->exec_path / "LogDoctor.app" };
+    #elif defined( Q_OS_LINUX ) || defined( Q_OS_BSD4 )
+        const std::filesystem::path src_path{ "logdoctor" };
+        const std::filesystem::path dst_path{ this->exec_path / "logdoctor" };
     #endif
 
     #if defined( Q_OS_MACOS ) || defined( Q_OS_WINDOWS )
@@ -730,15 +740,15 @@ bool MainWindow::copyExecutable()
             std::filesystem::permissions( dst_path, std::filesystem::perms::group_all, std::filesystem::perm_options::remove );
             std::filesystem::permissions( dst_path, std::filesystem::perms::group_read, std::filesystem::perm_options::add );
             std::filesystem::permissions( dst_path, std::filesystem::perms::others_all, std::filesystem::perm_options::remove );
-            #if defined( Q_OS_LINUX ) || defined( Q_OS_BSD4 )
+            #if defined( Q_OS_MACOS )
+                // 7 5 4
+                std::filesystem::permissions( dst_path, std::filesystem::perms::group_exec, std::filesystem::perm_options::add );
+                std::filesystem::permissions( dst_path, std::filesystem::perms::others_read, std::filesystem::perm_options::add );
+            #elif defined( Q_OS_LINUX ) || defined( Q_OS_BSD4 )
                 // 7 5 5
                 std::filesystem::permissions( dst_path, std::filesystem::perms::group_exec, std::filesystem::perm_options::add );
                 std::filesystem::permissions( dst_path, std::filesystem::perms::others_read, std::filesystem::perm_options::add );
                 std::filesystem::permissions( dst_path, std::filesystem::perms::others_exec, std::filesystem::perm_options::add );
-            #elif defined( Q_OS_MACOS )
-                // 7 5 4
-                std::filesystem::permissions( dst_path, std::filesystem::perms::group_exec, std::filesystem::perm_options::add );
-                std::filesystem::permissions( dst_path, std::filesystem::perms::others_read, std::filesystem::perm_options::add );
             #elif defined( Q_OS_WINDOWS )
                 // rw r -
             #endif
@@ -784,6 +794,21 @@ bool MainWindow::copyConfigfile()
             QString::fromStdString( err.message() ), 2, nullptr );
         std::ignore = dialog.exec();
     }
+    #if defined( Q_OS_LINUX ) || defined( Q_OS_BSD4 )// || defined( Q_OS_MACOS )
+        else {
+            const passwd* p{ getpwnam(this->user_name.c_str()) };
+            if ( chown( dst_path.c_str(), p->pw_uid, p->pw_gid ) != 0 ) {
+                ok = false;
+                DialogMsg dialog(
+                    MainWindow::tr( "Installation failed" ),
+                    QString("%1:\n%2").arg(
+                        MainWindow::tr( "Failed to change the owner of the resource" ),
+                        QString::fromStdString( dst_path.string() ) ),
+                    QString::fromStdString( err.message() ), 2, nullptr );
+                std::ignore = dialog.exec();
+            }
+        }
+    #endif
     return ok;
 }
 
@@ -829,6 +854,7 @@ bool MainWindow::copyResources()
 }
 
 
+#if !defined( Q_OS_MACOS )
 #if defined( Q_OS_LINUX ) || defined( Q_OS_BSD4 )
 bool MainWindow::copyUninstaller()
 {
@@ -877,10 +903,9 @@ bool MainWindow::copyUninstaller()
     }
     return ok;
 }
-#endif
+#endif // defined( Q_OS_LINUX ) || defined( Q_OS_BSD4 )
 
 
-#if !defined( Q_OS_MACOS )
 bool MainWindow::copyIcon()
 {
     bool ok{ true };
@@ -911,10 +936,8 @@ bool MainWindow::copyIcon()
     }
     return ok;
 }
-#endif
 
 
-#if !defined( Q_OS_MACOS )
 bool MainWindow::makeMenuEntry()
 {
     bool ok{ true };
