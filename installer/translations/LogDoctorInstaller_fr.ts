@@ -249,5 +249,9 @@ Continuer?</translation>
         <source>To destination path</source>
         <translation type="unfinished">Vers le chemin de destination</translation>
     </message>
+    <message>
+        <source>Failed to change the owner of the resource</source>
+        <translation type="unfinished">Échec du changement du propriétaire de la ressource</translation>
+    </message>
 </context>
 </TS>

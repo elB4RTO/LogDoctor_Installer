@@ -249,5 +249,9 @@ excepción hecha para databases, que no se verá afectada
         <source>To destination path</source>
         <translation type="unfinished">En el camino de destinación</translation>
     </message>
+    <message>
+        <source>Failed to change the owner of the resource</source>
+        <translation type="unfinished">Error al cambiar el propietario del recurso</translation>
+    </message>
 </context>
 </TS>
