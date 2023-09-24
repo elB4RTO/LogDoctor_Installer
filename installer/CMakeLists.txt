@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.5)
 
-project(LogDoctorInstaller VERSION 1.01 LANGUAGES CXX)
+project(LogDoctorInstaller VERSION 2.00 LANGUAGES CXX)
 
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
