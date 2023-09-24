@@ -11,6 +11,16 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+if(MSVC)
+    add_compile_options(/W2)
+    set(CMAKE_CXX_FLAGS_MINSIZEREL "/Os")
+    set(CMAKE_CXX_FLAGS_RELEASE "/O2")
+else()
+    add_compile_options(-Wall -Wextra -Wpedantic)
+    set(CMAKE_CXX_FLAGS_MINSIZEREL "-Os")
+    set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG")
+endif()
+
 find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets LinguistTools)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets LinguistTools)
 
@@ -70,7 +80,8 @@ if(WIN32)
 endif()
 
 target_link_libraries(LogDoctorInstaller PRIVATE
-    Qt${QT_VERSION_MAJOR}::Widgets)
+    Qt${QT_VERSION_MAJOR}::Widgets
+)
 
 if(WIN32)
     set_target_properties(LogDoctorInstaller PROPERTIES
