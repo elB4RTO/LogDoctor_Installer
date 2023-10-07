@@ -1019,6 +1019,12 @@
    <addaction name="menuLanguage"/>
   </widget>
   <action name="actionEnglish">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
    <property name="icon">
     <iconset resource="resources/resources.qrc">
      <normaloff>:/flags/flags/en.png</normaloff>:/flags/flags/en.png</iconset>
@@ -1031,6 +1037,9 @@
    </property>
   </action>
   <action name="actionEspanol">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
    <property name="icon">
     <iconset resource="resources/resources.qrc">
      <normaloff>:/flags/flags/es.png</normaloff>:/flags/flags/es.png</iconset>
@@ -1043,6 +1052,9 @@
    </property>
   </action>
   <action name="actionFrancais">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
    <property name="icon">
     <iconset resource="resources/resources.qrc">
      <normaloff>:/flags/flags/fr.png</normaloff>:/flags/flags/fr.png</iconset>
@@ -1055,6 +1067,9 @@
    </property>
   </action>
   <action name="actionItaliano">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
    <property name="icon">
     <iconset resource="resources/resources.qrc">
      <normaloff>:/flags/flags/it.png</normaloff>:/flags/flags/it.png</iconset>
